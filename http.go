@@ -8,16 +8,18 @@ import (
 )
 
 type httpServer struct {
-	mux *http.ServeMux
+	port int
+	mux  *http.ServeMux
 }
 
 func liveness(w http.ResponseWriter, req *http.Request) {
 	fmt.Fprintf(w, "pong\n")
 }
 
-func NewHTTPServer() *httpServer {
+func NewHTTPServer(port int) *httpServer {
 	server := &httpServer{
-		mux: http.NewServeMux(),
+		port: port,
+		mux:  http.NewServeMux(),
 	}
 	server.mux.HandleFunc("/ping", liveness)
 	server.mux.HandleFunc("/ready", liveness)
@@ -25,5 +27,5 @@ func NewHTTPServer() *httpServer {
 }
 
 func (s *httpServer) Run() {
-	glog.Fatalln(http.ListenAndServe(":8080", s.mux))
+	glog.Fatalln(http.ListenAndServe(fmt.Sprintf(":%d", s.port), s.mux))
 }
