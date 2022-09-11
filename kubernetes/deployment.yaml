@@ -1,0 +1,61 @@
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: podnat-controller
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: podnat-controller
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  verbs:
+  - get
+  - list
+  - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: podnat-controller
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: podnat-controller
+subjects:
+  - kind: ServiceAccount
+    name: podnat-controller
+    namespace: default
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: podnat-controller
+  labels:
+    app: podnat-controller
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: podnat-controller
+  template:
+    metadata:
+      labels:
+        app: podnat-controller
+    spec:
+      serviceAccountName: podnat-controller
+      containers:
+      - name: podnat-controller
+        image: registry.lan:5000/gutmensch/podnat-controller:0.0.4
+        ports:
+        - containerPort: 8080
+        livenessProbe:
+          httpGet:
+            path: /ping
+            port: 8080
+          initialDelaySeconds: 20
+          periodSeconds: 3

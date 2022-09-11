@@ -26,7 +26,7 @@ func (i *PodInformer) Run() {
 	}
 }
 
-func NewPodInformer(subscriber []string, annotation string, events chan<- string) *PodInformer {
+func NewPodInformer(subscriber []string, annotation string, resync int, events chan<- string) *PodInformer {
 	config, err := clientcmd.BuildConfigFromFlags("", "")
 	if err != nil {
 		glog.Errorln(err)
@@ -37,11 +37,9 @@ func NewPodInformer(subscriber []string, annotation string, events chan<- string
 	}
 
 	in := &PodInformer{
-		factory: kubeinformers.NewSharedInformerFactory(clientset, time.Second*30),
+		factory: kubeinformers.NewSharedInformerFactory(clientset, time.Duration(resync)*time.Second),
 	}
-	podInformer := in.factory.Core().V1().Pods().Informer()
-
-	podInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	in.factory.Core().V1().Pods().Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			// XXX: add check for annotation
 			if slices.Contains(subscriber, "add") {

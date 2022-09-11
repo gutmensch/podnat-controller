@@ -7,7 +7,7 @@ type IpTablesProcessor struct {
 }
 
 func (p *IpTablesProcessor) update(event string) {
-	fmt.Println("trigger: updating iptables")
+	fmt.Printf("trigger: updating iptables: %s", event)
 }
 
 func NewIpTablesProcessor() *IpTablesProcessor {
