@@ -1,7 +1,5 @@
 package main
 
-import "fmt"
-
 const ANNOTATION string = "bln.space/pod-nat"
 
 func main() {
@@ -17,6 +15,5 @@ func main() {
 	for {
 		podEvent := <-events
 		iptablesProcessor.update(podEvent)
-		fmt.Println(podEvent)
 	}
 }
