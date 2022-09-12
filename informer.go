@@ -89,6 +89,13 @@ func NewPodInformer(subscriber []string, events chan<- *PodInfo) *PodInformer {
 				events <- pod
 			}
 		},
+		UpdateFunc: func(oldObj, newObj interface{}) {
+			if slices.Contains(subscriber, "update") && filterForAnnotationAndPlacement(newObj) {
+				pod := generatePodInfo(newObj)
+				glog.Infof("pod updated: %s \n", pod.Name)
+				events <- pod
+			}
+		},
 	})
 
 	return in
