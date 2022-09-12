@@ -21,6 +21,7 @@ func NewHTTPServer(port int) *httpServer {
 		port: port,
 		mux:  http.NewServeMux(),
 	}
+	server.mux.HandleFunc("/healthz", liveness)
 	server.mux.HandleFunc("/ping", liveness)
 	server.mux.HandleFunc("/ready", liveness)
 	return server
