@@ -48,14 +48,22 @@ spec:
         app: podnat-controller
     spec:
       serviceAccountName: podnat-controller
+      hostNetwork: true
       containers:
       - name: podnat-controller
-        image: registry.lan:5000/gutmensch/podnat-controller:0.0.4
+        image: registry.lan:5000/gutmensch/podnat-controller:0.0.6
+        command: []
+        args:
+          - -logtostderr
         ports:
         - containerPort: 8080
         livenessProbe:
           httpGet:
-            path: /ping
-            port: 8080
+            path: /healthz
+            port: 8484
           initialDelaySeconds: 20
           periodSeconds: 3
+        securityContext:
+          privileged: false
+          capabilities:
+            add: ["NET_ADMIN"]
