@@ -10,7 +10,7 @@ var (
 )
 
 func init() {
-	annotation = flag.String("annotation", "bln.space/pod-nat", "pod annotation key for iptables NAT trigger")
+	annotation = flag.String("annotation", "bln.space/podnat", "pod annotation key for iptables NAT trigger")
 	port = flag.Int("port", 8484, "http service port number")
 	resync = flag.Int("resync", 0, "kubernetes informer resync interval")
 	dryRun = flag.Bool("dryrun", false, "execute iptables commands or print only")

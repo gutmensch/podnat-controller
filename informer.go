@@ -1,6 +1,7 @@
 package main
 
 import (
+	"net"
 	"time"
 
 	"github.com/golang/glog"
@@ -15,12 +16,12 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
+// TODO IPv6 support
 type PodInfo struct {
 	Name       string
 	Node       string
 	Annotation *PodNatAnnotation
-	IPv4       string
-	IPv6       string
+	IPv4       net.IP
 }
 
 type PodInformer struct {
@@ -49,9 +50,7 @@ func generatePodInfo(data interface{}) *PodInfo {
 		Name:       podName,
 		Node:       shortHostName(pod.Spec.NodeName),
 		Annotation: podAnnotation,
-		IPv4:       pod.Status.PodIP,
-		// TODO IPv6 support
-		IPv6: "",
+		IPv4:       net.ParseIP(pod.Status.PodIP),
 	}
 	return info
 }

@@ -3,6 +3,7 @@ RUN apk -U add --no-cache git
 WORKDIR $GOPATH/src/github.com/gutmensch/podnat-controller/
 COPY . .
 RUN go get -d -v
+RUN go test -v
 RUN GOOS=linux GOARCH=amd64 go build -ldflags="-w -s" -o /go/bin/podnat-controller
 
 FROM alpine:3.16
