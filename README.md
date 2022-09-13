@@ -6,19 +6,19 @@ Instead of using sophisticated load balancing, this controller is just watching 
 
 The JSON format expects a list (holding port objects) called 'ports' in the top level object. The entries for this list use following values
 
+|key|value|required|default|description|
+|---|---|---|---|---|
+|pubif|true/false|no|true| use public interface of node for NAT (local node network otherwise)|
+|src| 1-65535 |yes| |source port for NAT entry|
+|dst| 1-65535 | yes | |destination port for NAT entry|
+|proto| tcp/udp|no|tcp|layer 3 protocol for NAT entry|
+
+### Pod annotation example for a mail server
 ```
-pubif: true|false (default: true) - use public interface of node for NAT prerouting/forwarding, if false node local interface is tried
-src: [int] (required) - source port for NAT entry
-dst: [int] (required) - destination port for NAT entry
-proto: tcp|udp (default: tcp) - layer 3 protocol for NAT entry
+bln.space/podnat: '{"ports":[{"src":25,"dst":25},{"src":143,"dst":143},{"src":587,"dst":587}]}'
 ```
 
-TCP example for a mail server
-```
-bln.space/podnat: '{"ports":[{"src":25,"dst":"25"},{"src":143,"dst":"143"},{"src":587,"dst":"587"}]}'
-```
-
-UDP example for some rogue service
+### Pod annotation example for some rogue UDP service
 ```
 bln.space/podnat: '{"ports":[{"src":8888,"dst":8888,"proto":"udp"}]}
 ```
