@@ -16,6 +16,10 @@ func liveness(w http.ResponseWriter, req *http.Request) {
 	fmt.Fprintf(w, "pong\n")
 }
 
+func generateNatEntryList(w http.ResponseWriter, req *http.Request) {
+	fmt.Fprintf(w, "TODO: generate list of all current NAT entries\n")
+}
+
 func NewHTTPServer(port int) *httpServer {
 	server := &httpServer{
 		port: port,

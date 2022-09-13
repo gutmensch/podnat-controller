@@ -29,23 +29,22 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: podnat-controller
-    namespace: default
+    namespace: kube-system
 ---
 apiVersion: apps/v1
-kind: Deployment
+kind: DaemonSet
 metadata:
   name: podnat-controller
   labels:
-    app: podnat-controller
+    app.kubernetes.io/name: podnat-controller
 spec:
-  replicas: 1
   selector:
     matchLabels:
-      app: podnat-controller
+      app.kubernetes.io/name: podnat-controller
   template:
     metadata:
       labels:
-        app: podnat-controller
+        app.kubernetes.io/name: podnat-controller
     spec:
       serviceAccountName: podnat-controller
       hostNetwork: true
@@ -56,7 +55,7 @@ spec:
         args:
           - -logtostderr
         ports:
-        - containerPort: 8080
+        - containerPort: 8484
         livenessProbe:
           httpGet:
             path: /healthz

@@ -18,7 +18,7 @@ import (
 type PodInfo struct {
 	Name       string
 	Node       string
-	Annotation string
+	Annotation *PodNatAnnotation
 	IPv4       string
 	IPv6       string
 }
@@ -39,10 +39,16 @@ func (i *PodInformer) Run() {
 
 func generatePodInfo(data interface{}) *PodInfo {
 	pod := data.(*corev1.Pod)
+	podName := pod.ObjectMeta.Name
+	podAnnotation, err := parseAnnotation(pod.ObjectMeta.Annotations[*annotation])
+	if err != nil {
+		glog.Errorf("ignoring pod %s with invalid annotation, error: '%v'\n", podName, err)
+		return nil
+	}
 	info := &PodInfo{
-		Name:       pod.ObjectMeta.Name,
+		Name:       podName,
 		Node:       shortHostName(pod.Spec.NodeName),
-		Annotation: pod.ObjectMeta.Annotations[*annotation],
+		Annotation: podAnnotation,
 		IPv4:       pod.Status.PodIP,
 		// TODO IPv6 support
 		IPv6: "",
@@ -78,22 +84,28 @@ func NewPodInformer(subscriber []string, events chan<- *PodInfo) *PodInformer {
 		AddFunc: func(obj interface{}) {
 			if slices.Contains(subscriber, "add") && filterForAnnotationAndPlacement(obj) {
 				pod := generatePodInfo(obj)
-				glog.Infof("pod added and matched: %s \n", pod.Name)
-				events <- pod
+				if pod != nil {
+					glog.Infof("pod added and matched: %s \n", pod.Name)
+					events <- pod
+				}
 			}
 		},
 		DeleteFunc: func(obj interface{}) {
 			if slices.Contains(subscriber, "delete") && filterForAnnotationAndPlacement(obj) {
 				pod := generatePodInfo(obj)
-				glog.Infof("pod deleted and matched: %s \n", pod.Name)
-				events <- pod
+				if pod != nil {
+					glog.Infof("pod deleted and matched: %s \n", pod.Name)
+					events <- pod
+				}
 			}
 		},
 		UpdateFunc: func(oldObj, newObj interface{}) {
 			if slices.Contains(subscriber, "update") && filterForAnnotationAndPlacement(newObj) {
 				pod := generatePodInfo(newObj)
-				glog.Infof("pod updated: %s \n", pod.Name)
-				events <- pod
+				if pod != nil {
+					glog.Infof("pod updated and matched: %s \n", pod.Name)
+					events <- pod
+				}
 			}
 		},
 	})
