@@ -8,8 +8,8 @@ import (
 
 type PodNatAnnotation struct {
 	PublicInterface bool   `json:"pubif"`
-	SourcePort      int    `json:"src"`
-	DestinationPort int    `json:"dst"`
+	SourcePort      uint16    `json:"src"`
+	DestinationPort uint16    `json:"dst"`
 	Protocol        string `json:"proto"`
 }
 
@@ -28,11 +28,7 @@ func parseAnnotation(data string) (*PodNatAnnotation, error) {
 
 	// sanity checks for data
 	if pa.SourcePort == 0 || pa.DestinationPort == 0 {
-		return nil, errors.New("port 0 is reserved and cannot be assigned")
-	}
-
-	if pa.SourcePort >= 65535 || pa.DestinationPort >= 65535 {
-		return nil, errors.New("port values must be lower than 65536")
+		return nil, errors.New("port 0 is reserved and cannot be used")
 	}
 
 	if pa.Protocol != "tcp" && pa.Protocol != "udp" {
