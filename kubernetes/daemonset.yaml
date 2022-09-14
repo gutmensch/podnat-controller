@@ -50,10 +50,11 @@ spec:
       hostNetwork: true
       containers:
       - name: podnat-controller
-        image: registry.lan:5000/gutmensch/podnat-controller:0.0.6
+        image: registry.lan:5000/gutmensch/podnat-controller:0.0.7
         command: []
         args:
           - -logtostderr
+          - -dryrun=true
         ports:
         - containerPort: 8484
         livenessProbe:

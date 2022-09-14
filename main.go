@@ -3,18 +3,20 @@ package main
 import "flag"
 
 var (
-	annotation *string
-	port       *int
-	resync     *int
-	dryRun     *bool
+	annotation       *string
+	httpPort         *int
+	resync           *int
+	dryRun           *bool
+	restrictedEnable *bool
+	restrictedPorts  = []uint16{22, 53, 6443}
 )
 
 func init() {
 	annotation = flag.String("annotation", "bln.space/podnat", "pod annotation key for iptables NAT trigger")
-	port = flag.Int("port", 8484, "http service port number")
+	httpPort = flag.Int("port", 8484, "http service port number")
 	resync = flag.Int("resync", 0, "kubernetes informer resync interval")
 	dryRun = flag.Bool("dryrun", false, "execute iptables commands or print only")
-	// logtostderr added by glog - set to true for console logging
+	restrictedEnable = flag.Bool("restricted", false, "allow to also NAT restricted ports like 22 or 6443")
 }
 
 func main() {
@@ -25,7 +27,7 @@ func main() {
 	podInformer := NewPodInformer([]string{"add", "delete"}, events)
 	go podInformer.Run()
 
-	httpServer := NewHTTPServer(*port)
+	httpServer := NewHTTPServer(*httpPort)
 	go httpServer.Run()
 
 	iptablesProcessor := NewIpTablesProcessor()

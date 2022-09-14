@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"golang.org/x/exp/slices"
 )
 
 type PodNatAnnotation struct {
@@ -54,6 +55,10 @@ func parseAnnotation(data string) (*PodNatAnnotation, error) {
 
 		if def.Protocol != "tcp" && def.Protocol != "udp" {
 			return nil, errors.New("supported protocols for NAT entries are 'tcp' and 'udp'")
+		}
+
+		if !*restrictedEnable && (slices.Contains(restrictedPorts, def.SourcePort) || slices.Contains(restrictedPorts, def.DestinationPort)) {
+			return nil, errors.New(fmt.Sprintf("restricted ports %s are not allowed unless specified with cmd flag -restrictedEnable", restrictedPorts))
 		}
 	}
 

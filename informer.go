@@ -19,6 +19,7 @@ import (
 // TODO IPv6 support
 type PodInfo struct {
 	Name       string
+	Namespace  string
 	Node       string
 	Annotation *PodNatAnnotation
 	IPv4       net.IP
@@ -41,6 +42,7 @@ func (i *PodInformer) Run() {
 func generatePodInfo(data interface{}) *PodInfo {
 	pod := data.(*corev1.Pod)
 	podName := pod.ObjectMeta.Name
+	podNamespace := pod.ObjectMeta.Namespace
 	podAnnotation, err := parseAnnotation(pod.ObjectMeta.Annotations[*annotation])
 	if err != nil {
 		glog.Errorf("ignoring pod %s with invalid annotation, error: '%v'\n", podName, err)
@@ -48,6 +50,7 @@ func generatePodInfo(data interface{}) *PodInfo {
 	}
 	info := &PodInfo{
 		Name:       podName,
+		Namespace:  podNamespace,
 		Node:       shortHostName(pod.Spec.NodeName),
 		Annotation: podAnnotation,
 		IPv4:       net.ParseIP(pod.Status.PodIP),

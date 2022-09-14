@@ -1,5 +1,5 @@
 FROM golang:alpine AS builder
-RUN apk -U add --no-cache git
+RUN apk -U add --no-cache git gcc musl-dev
 WORKDIR $GOPATH/src/github.com/gutmensch/podnat-controller/
 COPY . .
 RUN go get -d -v
