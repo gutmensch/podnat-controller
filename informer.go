@@ -43,7 +43,7 @@ func generatePodInfo(data interface{}) *PodInfo {
 	pod := data.(*corev1.Pod)
 	podName := pod.ObjectMeta.Name
 	podNamespace := pod.ObjectMeta.Namespace
-	podAnnotation, err := parseAnnotation(pod.ObjectMeta.Annotations[*annotation])
+	podAnnotation, err := parseAnnotation(pod.ObjectMeta.Annotations[*annotationKey])
 	if err != nil {
 		glog.Errorf("ignoring pod %s with invalid annotation, error: '%v'\n", podName, err)
 		return nil
@@ -60,7 +60,7 @@ func generatePodInfo(data interface{}) *PodInfo {
 
 func filterForAnnotationAndPlacement(data interface{}) bool {
 	pod := data.(*corev1.Pod)
-	if _, ok := pod.ObjectMeta.Annotations[*annotation]; ok {
+	if _, ok := pod.ObjectMeta.Annotations[*annotationKey]; ok {
 		if shortHostName(pod.Spec.NodeName) == getEnv("HOSTNAME", "") {
 			return true
 		}
@@ -80,7 +80,7 @@ func NewPodInformer(subscriber []string, events chan<- *PodInfo) *PodInformer {
 	}
 
 	in := &PodInformer{
-		factory: kubeinformers.NewSharedInformerFactory(clientset, time.Duration(*resync)*time.Second),
+		factory: kubeinformers.NewSharedInformerFactory(clientset, time.Duration(*informerResync)*time.Second),
 	}
 	in.factory.Core().V1().Pods().Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {

@@ -3,23 +3,23 @@ package main
 import "flag"
 
 var (
-	annotation        *string
-	httpPort          *int
-	resync            *int
-	dryRun            *bool
-	restrictedEnable  *bool
-	restrictedPorts   = []uint16{22, 53, 6443}
-	firewall          *string
-	firewallProcessor FirewallProcessor
+	annotationKey         *string
+	httpPort              *int
+	informerResync        *int
+	dryRun                *bool
+	restrictedPortsEnable *bool
+	restrictedPorts       = []uint16{22, 53, 6443}
+	firewallFlavor        *string
+	firewallProcessor     FirewallProcessor
 )
 
 func init() {
-	annotation = flag.String("annotation", "bln.space/podnat", "pod annotation key for iptables NAT trigger")
-	httpPort = flag.Int("port", 8484, "http service port number")
-	resync = flag.Int("resync", 0, "kubernetes informer resync interval")
-	dryRun = flag.Bool("dryrun", false, "execute iptables commands or print only")
-	restrictedEnable = flag.Bool("restricted", false, "allow to also NAT restricted ports like 22 or 6443")
-	firewall = flag.String("firewall", "iptables", "firewall implementation to use for NAT setup")
+	annotationKey = flag.String("annotationKey", "bln.space/podnat", "pod annotation key for iptables NAT trigger")
+	httpPort = flag.Int("httpPort", 8484, "http service port number")
+	informerResync = flag.Int("informerResync", 0, "kubernetes informer resync interval")
+	dryRun = flag.Bool("dryRun", false, "execute iptables commands or print only")
+	restrictedPortsEnable = flag.Bool("restrictedPortsEnable", false, "allow to also NAT restricted ports like 22 or 6443")
+	firewallFlavor = flag.String("firewallFlavor", "iptables", "firewall implementation to use for NAT setup")
 }
 
 func main() {
@@ -34,7 +34,7 @@ func main() {
 	httpServer := NewHTTPServer(*httpPort)
 	go httpServer.Run()
 
-	switch *firewall {
+	switch *firewallFlavor {
 	case "iptables":
 		firewallProcessor = NewIpTablesProcessor()
 	}

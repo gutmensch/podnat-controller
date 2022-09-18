@@ -70,7 +70,7 @@ func parseAnnotation(data string) (*PodNatAnnotation, error) {
 			return nil, errors.New("supported protocols for NAT entries are 'tcp' and 'udp'")
 		}
 
-		if !*restrictedEnable &&
+		if !*restrictedPortsEnable &&
 			(slices.Contains(restrictedPorts, def.SourcePort) || slices.Contains(restrictedPorts, def.DestinationPort)) {
 			return nil, errors.New(
 				fmt.Sprintf(
