@@ -41,12 +41,17 @@ type IpTablesProcessor struct {
 
 const RESOURCE_PREFIX = "podnat"
 
-func (p *IpTablesProcessor) update(event *PodInfo) error {
+func (p *IpTablesProcessor) apply(event *PodInfo) error {
 	glog.Infof("iptables trigger, reconciling with pod: %v\n", event)
 	if *dryRun {
 		glog.Infof("dryRun mode enabled, not updating iptables chains for pod event\n")
 		return nil
 	}
+	return nil
+}
+
+func (p *IpTablesProcessor) reconcile() error {
+	glog.Infoln("tbd")
 	return nil
 }
 

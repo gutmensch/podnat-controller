@@ -8,7 +8,7 @@ import (
 func TestAnnotationJSON(t *testing.T) {
 	goodInput := `{"entries":[
 	{"srcPort":25,"dstPort":25},
-	{"ifaceAuto":false,"srcIP":"192.168.1.10", "srcPort":143,"dstPort":143},
+	{"ifaceAuto":false,"srcIP":"192.168.1.10","srcPort":143,"dstPort":143},
 	{"srcPort":8888,"dstPort":18888,"proto":"udp"}
 	]}`
 	expectedOutput := &PodNatAnnotation{
