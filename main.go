@@ -10,16 +10,18 @@ var (
 	restrictedPortsEnable *bool
 	restrictedPorts       = []uint16{22, 53, 6443}
 	firewallFlavor        *string
-	firewallProcessor     FirewallProcessor
+	resourcePrefix        *string
+	fw                    FirewallProcessor
 )
 
 func init() {
-	annotationKey = flag.String("annotationKey", "bln.space/podnat", "pod annotation key for iptables NAT trigger")
-	httpPort = flag.Int("httpPort", 8484, "http service port number")
-	informerResync = flag.Int("informerResync", 0, "kubernetes informer resync interval")
-	dryRun = flag.Bool("dryRun", false, "execute iptables commands or print only")
-	restrictedPortsEnable = flag.Bool("restrictedPortsEnable", false, "allow to also NAT restricted ports like 22 or 6443")
-	firewallFlavor = flag.String("firewallFlavor", "iptables", "firewall implementation to use for NAT setup")
+	annotationKey = flag.String("annotationkey", "bln.space/podnat", "pod annotation key for iptables NAT trigger")
+	httpPort = flag.Int("httpport", 8484, "http service port number")
+	informerResync = flag.Int("informerresync", 0, "kubernetes informer resync interval")
+	dryRun = flag.Bool("dryrun", false, "execute iptables commands or print only")
+	restrictedPortsEnable = flag.Bool("restrictedportsenable", false, "allow to also NAT restricted ports like 22 or 6443")
+	firewallFlavor = flag.String("firewallflavor", "iptables", "firewall implementation to use for NAT setup")
+	resourcePrefix = flag.String("resourceprefix", "podnat", "resource prefix used for firewall chains and comments")
 }
 
 func main() {
@@ -36,11 +38,15 @@ func main() {
 
 	switch *firewallFlavor {
 	case "iptables":
-		firewallProcessor = NewIpTablesProcessor()
+		fw = NewIpTablesProcessor()
+	default:
+		fw = NewDummyProcessor()
 	}
 
+	// main loop: add/remove NAT entry for (dis)appearing pods
 	for {
 		podEvent := <-events
-		_ = firewallProcessor.apply(podEvent)
+		_ = fw.Apply(podEvent)
+		_ = fw.Reconcile()
 	}
 }

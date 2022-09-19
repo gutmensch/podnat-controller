@@ -39,9 +39,7 @@ type IpTablesProcessor struct {
 	rules  []IpTablesRule
 }
 
-const RESOURCE_PREFIX = "podnat"
-
-func (p *IpTablesProcessor) apply(event *PodInfo) error {
+func (p *IpTablesProcessor) Apply(event *PodInfo) error {
 	glog.Infof("iptables trigger, reconciling with pod: %v\n", event)
 	if *dryRun {
 		glog.Infof("dryRun mode enabled, not updating iptables chains for pod event\n")
@@ -50,7 +48,7 @@ func (p *IpTablesProcessor) apply(event *PodInfo) error {
 	return nil
 }
 
-func (p *IpTablesProcessor) reconcile() error {
+func (p *IpTablesProcessor) Reconcile() error {
 	glog.Infoln("tbd")
 	return nil
 }
@@ -78,19 +76,19 @@ func (p *IpTablesProcessor) init() error {
 	// XXX: static definition of chains and positions
 	p.chains = []IpTablesChain{
 		{
-			Name:         strings.ToUpper(fmt.Sprintf("%s_FORWARD", RESOURCE_PREFIX)),
+			Name:         strings.ToUpper(fmt.Sprintf("%s_FORWARD", *resourcePrefix)),
 			Table:        "filter",
 			JumpChain:    "FORWARD",
 			JumpPosition: 1,
 		},
 		{
-			Name:         strings.ToUpper(fmt.Sprintf("%s_PRE", RESOURCE_PREFIX)),
+			Name:         strings.ToUpper(fmt.Sprintf("%s_PRE", *resourcePrefix)),
 			Table:        "nat",
 			JumpChain:    "PREROUTING",
 			JumpPosition: 1,
 		},
 		{
-			Name:         strings.ToUpper(fmt.Sprintf("%s_POST", RESOURCE_PREFIX)),
+			Name:         strings.ToUpper(fmt.Sprintf("%s_POST", *resourcePrefix)),
 			Table:        "nat",
 			JumpChain:    "POSTROUTING",
 			JumpPosition: 1,

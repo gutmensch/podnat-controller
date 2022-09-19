@@ -4,33 +4,45 @@ Instead of using sophisticated load balancing, this controller is just watching 
 
 ## Annotation format
 
-The JSON format expects a list (holding port objects) called 'ports' in the top level object. The entries for this list use following values
+The JSON format expects a list (holding port objects) called 'entries' in the top level object. The entries for this list use following values
 
 |key|value|required|default|description|
 |---|---|---|---|---|
-|pubif|true/false|no|true| use public interface of node for NAT (local node network otherwise)|
-|src| 1-65535 |yes| |source port for NAT entry|
-|dst| 1-65535 | yes | |destination port for NAT entry|
+|ifaceAuto|true/false|no|true| auto detect and use public interface resp. IP|
+|srcIP| IPv4 address |no| |source IP for NAT entry to pod (for manual setting)|
+|srcPort| 1-65535 |yes| |source port for NAT entry|
+|dstPort| 1-65535 | yes | |destination port for NAT entry|
 |proto| tcp/udp|no|tcp|layer 3 protocol for NAT entry|
 
 ### Pod annotation example for a mail server
 ```
-bln.space/podnat: '{"ports":[{"src":25,"dst":25},{"src":143,"dst":143},{"src":587,"dst":587}]}'
+bln.space/podnat: '{"entries":[{"srcPort":25,"dstPort":25},{"ifaceAuto":false,"srcIP":"192.168.2.94","srcPort":587,"dstPort":587}]}'
 ```
 
 ### Pod annotation example for some rogue UDP service
 ```
-bln.space/podnat: '{"ports":[{"src":8888,"dst":8888,"proto":"udp"}]}
+bln.space/podnat: '{"entries":[{"srcPort":8888,"dstPort":8888,"proto":"udp"}]}
 ```
+
+## Controller flags
+|flag|type|required|default|description|
+|---|---|---|---|---|
+|-logtostderr| bool (w/o param) |no| false | glog sending logs to stderr|
+|-dryrun| bool (w/o param) |no| false | just printing changes to firewall |
+|-annotationkey| string |yes| bln.space/podnat |annotation key to watch for in pods (format as above)|
+|-informerresync| 0 | no | |for high traffic updates vs. k8s informer|
+|-restrictedportsenable| bool (w/o param) |no|false|allow NAT entries for ports like 22 and 6443|
+|-httpport| int |no|8484|http port for pod nat controller daemon set deployment|
+|-firewallflavor| string |no|iptables|implementation for firewall NAT automation|
 
 ## Local testing
 
-Dry-run will print iptables changes only.
+Dry-run will print firewall changes only. The controller filters for its own kubernetes node hostname, so you need to spoof this information via environment variable for local testing.
 
 ```
 export KUBECONFIG=$HOME/.kube/config
 go build
-HOSTNAME=<kubernetes_node_name> ./podnat-controller -logtostderr -dryrun=true
+HOSTNAME=<kubernetes_node_name> ./podnat-controller -logtostderr -dryrun
 ```
 
 ## Limitations

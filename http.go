@@ -28,6 +28,7 @@ func NewHTTPServer(port int) *httpServer {
 	server.mux.HandleFunc("/healthz", liveness)
 	server.mux.HandleFunc("/ping", liveness)
 	server.mux.HandleFunc("/ready", liveness)
+	server.mux.HandleFunc("/entries/list", generateNatEntryList)
 	return server
 }
 
