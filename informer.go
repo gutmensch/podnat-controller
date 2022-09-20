@@ -2,6 +2,7 @@ package main
 
 import (
 	"net"
+	"os"
 	"time"
 
 	"github.com/golang/glog"
@@ -18,6 +19,7 @@ import (
 
 // TODO IPv6 support
 type PodInfo struct {
+	Event      string
 	Name       string
 	Namespace  string
 	Node       string
@@ -39,7 +41,7 @@ func (i *PodInformer) Run() {
 	}
 }
 
-func generatePodInfo(data interface{}) *PodInfo {
+func generatePodInfo(event string, data interface{}) *PodInfo {
 	pod := data.(*corev1.Pod)
 	podName := pod.ObjectMeta.Name
 	podNamespace := pod.ObjectMeta.Namespace
@@ -49,6 +51,7 @@ func generatePodInfo(data interface{}) *PodInfo {
 		return nil
 	}
 	info := &PodInfo{
+		Event:      event,
 		Name:       podName,
 		Namespace:  podNamespace,
 		Node:       shortHostName(pod.Spec.NodeName),
@@ -60,10 +63,16 @@ func generatePodInfo(data interface{}) *PodInfo {
 
 func filterForAnnotationAndPlacement(data interface{}) bool {
 	pod := data.(*corev1.Pod)
+	if net.ParseIP(pod.Status.PodIP) == nil {
+		// IP not yet assigned, wait for next update cycle
+		return false
+	}
+	if shortHostName(pod.Spec.NodeName) != getEnv("HOSTNAME", "") {
+		// not running on this node
+		return false
+	}
 	if _, ok := pod.ObjectMeta.Annotations[*annotationKey]; ok {
-		if shortHostName(pod.Spec.NodeName) == getEnv("HOSTNAME", "") {
-			return true
-		}
+		return true
 	}
 	return false
 }
@@ -73,10 +82,12 @@ func NewPodInformer(subscriber []string, events chan<- *PodInfo) *PodInformer {
 	config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
 	if err != nil {
 		glog.Errorln(err)
+		os.Exit(1)
 	}
 	clientset, err := kubernetes.NewForConfig(config)
 	if err != nil {
 		glog.Errorln(err)
+		os.Exit(1)
 	}
 
 	in := &PodInformer{
@@ -85,27 +96,27 @@ func NewPodInformer(subscriber []string, events chan<- *PodInfo) *PodInformer {
 	in.factory.Core().V1().Pods().Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			if slices.Contains(subscriber, "add") && filterForAnnotationAndPlacement(obj) {
-				pod := generatePodInfo(obj)
+				pod := generatePodInfo("add", obj)
 				if pod != nil {
-					glog.Infof("pod added and matched: %s \n", pod.Name)
+					glog.Infof("new pod added, matched filters: %s \n", pod.Name)
 					events <- pod
 				}
 			}
 		},
 		DeleteFunc: func(obj interface{}) {
 			if slices.Contains(subscriber, "delete") && filterForAnnotationAndPlacement(obj) {
-				pod := generatePodInfo(obj)
+				pod := generatePodInfo("delete", obj)
 				if pod != nil {
-					glog.Infof("pod deleted and matched: %s \n", pod.Name)
+					glog.Infof("pod deleted, matched filters: %s \n", pod.Name)
 					events <- pod
 				}
 			}
 		},
 		UpdateFunc: func(oldObj, newObj interface{}) {
 			if slices.Contains(subscriber, "update") && filterForAnnotationAndPlacement(newObj) {
-				pod := generatePodInfo(newObj)
+				pod := generatePodInfo("update", newObj)
 				if pod != nil {
-					glog.Infof("pod updated and matched: %s \n", pod.Name)
+					glog.Infof("pod updated, matched filters: %s \n", pod.Name)
 					events <- pod
 				}
 			}

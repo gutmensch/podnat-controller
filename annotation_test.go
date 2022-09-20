@@ -1,12 +1,13 @@
 package main
 
 import (
+	"errors"
 	"reflect"
 	"testing"
 )
 
-func TestAnnotationJSON(t *testing.T) {
-	goodInput := `{"entries":[
+func TestGoodAnnotationJSON(t *testing.T) {
+	input := `{"entries":[
 	{"srcPort":25,"dstPort":25},
 	{"ifaceAuto":false,"srcIP":"192.168.1.10","srcPort":143,"dstPort":143},
 	{"srcPort":8888,"dstPort":18888,"proto":"udp"}
@@ -19,12 +20,24 @@ func TestAnnotationJSON(t *testing.T) {
 		},
 	}
 
-	out, err := parseAnnotation(goodInput)
+	out, err := parseAnnotation(input)
 	if err != nil {
 		t.Fatal("Failure message", err)
 	}
 
 	if !reflect.DeepEqual(expectedOutput, out) {
 		t.Fatal("Actual output does not match expected output")
+	}
+}
+
+func TestBadPortAnnotationJSON(t *testing.T) {
+	input := `{"entries":[
+	{"srcPort":25,"dstPort":25},
+	{"srcPort":0,"dstPort":0}
+	]}`
+
+	_, err := parseAnnotation(input)
+	if err != errors.New("port 0 is reserved and cannot be used") {
+		t.Fatal("Expected error 'port 0 is reserved and cannot be used' but got", err)
 	}
 }

@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: podnat-test
+  labels:
+    app.kubernetes.io/name: podnat-test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: podnat-test
+  template:
+    metadata:
+      annotations:
+        bln.space/podnat: '{"entries":[{"srcPort":8888,"dstPort":8080}]}'
+      labels:
+        app.kubernetes.io/name: podnat-test
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: kubernetes.io/hostname
+                operator: In
+                values:
+                - queen1.lan
+      containers:
+      - name: http
+        image: trinitronx/python-simplehttpserver:latest
+        ports:
+        - containerPort: 8080

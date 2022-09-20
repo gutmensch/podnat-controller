@@ -11,6 +11,12 @@ import (
 	"github.com/jpillora/ipfilter"
 )
 
+// http://cavaliercoder.com/blog/optimized-abs-for-int64-in-go.html
+func abs(n int16) int16 {
+	y := n >> 15
+	return (n ^ y) - y
+}
+
 func ptr[T any](t T) *T {
 	return &t
 }

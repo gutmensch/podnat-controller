@@ -19,8 +19,3 @@ func (p *DummyProcessor) Apply(event *PodInfo) error {
 	glog.Warningf("firewall flavor '%s' not implemented, please use a supported firewall", *firewallFlavor)
 	return nil
 }
-
-func (p *DummyProcessor) Reconcile() error {
-	glog.Warningf("firewall flavor '%s' not implemented, please use a supported firewall", *firewallFlavor)
-	return nil
-}
