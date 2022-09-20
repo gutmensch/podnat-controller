@@ -30,7 +30,6 @@ func main() {
 
 	events := make(chan *PodInfo)
 
-	// skip update events - too noisy and not useful
 	podInformer := NewPodInformer([]string{"add", "update", "delete"}, events)
 	go podInformer.Run()
 

@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"strconv"
 	"strings"
 
 	"github.com/golang/glog"
@@ -93,18 +92,7 @@ func (p *IpTablesProcessor) ensureJumpToChain(chain IpTablesChain) error {
 		pos = entries + 1
 	}
 
-	addRuleSpec := []string{
-		"-I",
-		chain.JumpFrom,
-		strconv.Itoa(int(pos)),
-		"-m",
-		"comment",
-		"--comment",
-		fmt.Sprintf("%s[jump_to_chain]", *resourcePrefix),
-		"-j",
-		chain.Name,
-	}
-	existingRuleSpec := []string{
+	ruleSpec := []string{
 		"-m",
 		"comment",
 		"--comment",
@@ -113,14 +101,22 @@ func (p *IpTablesProcessor) ensureJumpToChain(chain IpTablesChain) error {
 		chain.Name,
 	}
 
-	ruleExists, err := p.ipt.Exists(chain.Table, chain.JumpFrom, existingRuleSpec...)
+	ruleExists, err := p.ipt.Exists(chain.Table, chain.JumpFrom, ruleSpec...)
 	if err != nil {
-		glog.Errorf("checking for existing rule %v in table %s failed: %v\n", existingRuleSpec, chain.Table, err)
+		glog.Errorf("checking for existing rule %v in table %s failed: %v\n", ruleSpec, chain.Table, err)
 		return err
 	}
-	glog.Infoln(ruleExists)
 
-	glog.Infof("adding rulespec %v\n", addRuleSpec)
+	if ruleExists {
+		glog.Infof("jump to chain %s in %s in table %s already exists\n", chain.Name, chain.JumpFrom, chain.Table)
+		return nil
+	}
+
+	err = p.ipt.Insert(chain.Table, chain.JumpFrom, int(pos), ruleSpec...)
+	if err != nil {
+		glog.Errorf("adding jump rule %v in table %s failed: %v\n", ruleSpec, chain.Table, err)
+		return err
+	}
 	return nil
 }
 
