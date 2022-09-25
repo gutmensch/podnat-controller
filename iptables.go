@@ -14,31 +14,6 @@ import (
 	"github.com/coreos/go-iptables/iptables"
 )
 
-// TODO
-// 1. -t filter -A FORWARD -d 10.244.5.22/32 -p tcp -m conntrack --ctstate NEW -m tcp -m multiport --dports 80,443 -m comment --comment "ansible[v4_filter]" -j ACCEPT
-// 2. -t nat -A PREROUTING -d 65.108.70.29/32 -p tcp -m tcp --dport 80 -m comment --comment "ansible[v4_nat]" -j DNAT --to-destination 10.244.5.22:80
-//    -t nat -A PREROUTING -d 65.108.70.29/32 -p tcp -m tcp --dport 443 -m comment --comment "ansible[v4_nat]" -j DNAT --to-destination 10.244.5.22:443
-// 3. -t nat -A CILIUM_POST_nat -s 10.244.4.0/22 ! -d 10.244.4.0/22 ! -o cilium_+ -m comment --comment "cilium masquerade non-cluster" -j MASQUERADE
-// -A POSTROUTING -s 10.0.0.0/24 -m comment --comment "ansible[default_nat]: ansible[default_nat]" -j MASQ_FILTER
-// Match rule specifying a source port
-// Below makes sure packets from Eth Devices have correct source IP Address Notice, when specifying a port, protocol needs to be specified as well
-//
-// iptables -t nat -A POSTROUTING -o wlan0 -s 192.168.1.2 -p udp --dport 16020 -j SNAT --to 10.1.1.7:51889
-// iptables -t nat -A POSTROUTING -o wlan0 -s 192.168.1.2 -p tcp --dport 21 -j SNAT --to 10.1.1.7:21
-// iptables -t nat -A POSTROUTING -o wlan0 -s 192.168.1.3 -j SNAT --to 10.1.1.9
-//
-//
-// # Packets destined for IP 10.1.1.7 will be forwaded to 192.168.1.2 UDP,TCP
-// # Packets destined for IP 10.1.1.9 will be forwaded to 192.168.1.3 UDP,TCP
-// # Does work with ping (ICMP) correctly
-// iptables -t nat -A PREROUTING -i wlan0 -d 10.1.1.7 -j DNAT --to-destination 192.168.1.2
-// iptables -t nat -A PREROUTING -i wlan0 -d 10.1.1.9 -j DNAT --to-destination 192.168.1.3
-// Packets destined for IP 10.1.1.7 will be forwaded to 192.168.1.2 UDP,TCP
-// Does NOT work with ping (ICMP) correctly, does not handle ICMP protocol WLAN IP reply on a ping without
-//
-// iptables -t nat -A PREROUTING -p tcp -i wlan0 -d 10.1.1.7 -j DNAT --to-destination 192.168.1.2
-// iptables -t nat -A PREROUTING -p udp -i wlan0 -d 10.1.1.7 -j DNAT --to-destination 192.168.1.2
-
 type IpTablesProcessor struct {
 	ipt                   *iptables.IPTables
 	chains                []IpTablesChain
@@ -203,18 +178,6 @@ func (p *IpTablesProcessor) ensureJumpToChain(chain IpTablesChain) error {
 // iptables -t nat -A POSTROUTING -o wlan0 -s 192.168.1.2 -p udp --dport 16020 -j SNAT --to 10.1.1.7:51889
 // iptables -t nat -A POSTROUTING -o wlan0 -s 192.168.1.2 -p tcp --dport 21 -j SNAT --to 10.1.1.7:21
 // iptables -t nat -A POSTROUTING -o wlan0 -s 192.168.1.3 -j SNAT --to 10.1.1.9
-//
-//
-// # Packets destined for IP 10.1.1.7 will be forwaded to 192.168.1.2 UDP,TCP
-// # Packets destined for IP 10.1.1.9 will be forwaded to 192.168.1.3 UDP,TCP
-// # Does work with ping (ICMP) correctly
-// iptables -t nat -A PREROUTING -i wlan0 -d 10.1.1.7 -j DNAT --to-destination 192.168.1.2
-// iptables -t nat -A PREROUTING -i wlan0 -d 10.1.1.9 -j DNAT --to-destination 192.168.1.3
-// Packets destined for IP 10.1.1.7 will be forwaded to 192.168.1.2 UDP,TCP
-// Does NOT work with ping (ICMP) correctly, does not handle ICMP protocol WLAN IP reply on a ping without
-//
-// iptables -t nat -A PREROUTING -p tcp -i wlan0 -d 10.1.1.7 -j DNAT --to-destination 192.168.1.2
-// iptables -t nat -A PREROUTING -p udp -i wlan0 -d 10.1.1.7 -j DNAT --to-destination 192.168.1.2
 
 func (p *IpTablesProcessor) getRule(chain IpTablesChain, rule *IpTablesRule) []string {
 	switch chain.JumpFrom {
@@ -287,8 +250,6 @@ func (p *IpTablesProcessor) reconcileRules() error {
 }
 
 func (p *IpTablesProcessor) init() error {
-	// chain definitions include namings and jump positions from standard chains
-	// logic:
 	//   positive number = actual position in chain, if not enough rules, then use last position
 	//   negative number = go back from end of current list and insert there, or use last position if not enough rules
 	p.chains = []IpTablesChain{
@@ -318,14 +279,12 @@ func (p *IpTablesProcessor) init() error {
 			continue
 		}
 
-		// 1. create new chains for controller only
 		if err := p.ensureChain(chain); err != nil {
 			return errors.New(
 				fmt.Sprintf("initializing iptables chain %s in table %s failed with error %v\n", chain.Name, chain.Table, err),
 			)
 		}
 
-		// 2. jump from default chains to controller chains
 		if err := p.ensureJumpToChain(chain); err != nil {
 			return errors.New(
 				fmt.Sprintf(
