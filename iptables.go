@@ -60,6 +60,7 @@ func (p *IpTablesProcessor) Apply(event *PodInfo) error {
 
 		if effSourceIP == nil {
 			glog.Warningf("could not detect source IP from annotation entry or from node, skipping entry %v\n", entry)
+			continue
 		}
 
 		key := fmt.Sprintf("%s:%d", effSourceIP, entry.SourcePort)
@@ -216,20 +217,20 @@ func (p *IpTablesProcessor) ensureJumpToChain(chain IpTablesChain) error {
 // iptables -t nat -A PREROUTING -p udp -i wlan0 -d 10.1.1.7 -j DNAT --to-destination 192.168.1.2
 
 func (p *IpTablesProcessor) getRule(chain IpTablesChain, rule *IpTablesRule) []string {
-	switch chain.Name {
-	case fmt.Sprintf("%s_FORWARD", *resourcePrefix):
+	switch chain.JumpFrom {
+	case "FORWARD":
 		return []string{
 			"-d", fmt.Sprintf("%s/32", rule.DestinationIP.String()), "-p", rule.Protocol,
 			"-m", "conntrack", "--ctstate", "NEW", "-m", rule.Protocol, "--dport", string(rule.DestinationPort),
 			"-m", "comment", "--comment", rule.Comment, "-j", "ACCEPT",
 		}
-	case fmt.Sprintf("%s_PRE", *resourcePrefix):
+	case "PREROUTING":
 		return []string{
 			"-d", fmt.Sprintf("%s/32", rule.SourceIP.String()), "-p", rule.Protocol, "-m", rule.Protocol,
 			"--dport", string(rule.DestinationPort), "-m", "comment", "--comment", rule.Comment, "-j", "DNAT",
 			"--to-destination", fmt.Sprintf("%s:%s", rule.DestinationIP, rule.DestinationPort),
 		}
-	case fmt.Sprintf("%s_POST", *resourcePrefix):
+	case "POSTROUTING":
 		return []string{
 			"-s", fmt.Sprintf("%s/32", rule.DestinationIP.String()), "!", "-d", p.internalNetwork, "-p", rule.Protocol,
 			"-m", "comment", "--comment", rule.Comment, "-j", "SNAT", "--to", rule.SourceIP.String(),
