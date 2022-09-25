@@ -34,14 +34,6 @@ func (i *PodInformer) Run() {
 func generatePodInfo(event string, data interface{}) *PodInfo {
 	pod := data.(*corev1.Pod)
 	podName := pod.ObjectMeta.Name
-	for _, cond := range pod.Status.Conditions {
-		if cond.Type == "Ready" && cond.Status == "False" {
-			glog.Warningf("ignoring pod %s for updates with unready status\n", podName)
-			return nil
-		}
-	}
-	glog.Infof("===\n%+v\n===\n", pod.Status)
-	//  Conditions:[{Type:Initialized Status:True LastProbeTime:0001-01-01 00:00:00 +0000 UTC LastTransitionTime:2022-09-25 19:27:15 +0200 CEST Reason: Message:} {Type:Ready Status:False
 	podNamespace := pod.ObjectMeta.Namespace
 	podAnnotation, err := parseAnnotation(pod.ObjectMeta.Annotations[*annotationKey])
 	if err != nil {
@@ -62,17 +54,29 @@ func generatePodInfo(event string, data interface{}) *PodInfo {
 
 func filterForAnnotationAndPlacement(data interface{}) bool {
 	pod := data.(*corev1.Pod)
+
+	// IP not yet assigned, wait for next update cycle
 	if net.ParseIP(pod.Status.PodIP) == nil {
-		// IP not yet assigned, wait for next update cycle
 		return false
 	}
+
+	// not running on this node
 	if shortHostName(pod.Spec.NodeName) != getEnv("HOSTNAME", "") {
-		// not running on this node
 		return false
 	}
+
+	// pod not ready (also avoids noise during pod replacement updates)
+	for _, cond := range pod.Status.Conditions {
+		if cond.Type == "Ready" && cond.Status == "False" {
+			return false
+		}
+	}
+
+	// valid pod and state
 	if _, ok := pod.ObjectMeta.Annotations[*annotationKey]; ok {
 		return true
 	}
+
 	return false
 }
 
