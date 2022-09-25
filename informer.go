@@ -17,16 +17,6 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
-// TODO IPv6 support
-type PodInfo struct {
-	Event      string
-	Name       string
-	Namespace  string
-	Node       string
-	Annotation *PodNatAnnotation
-	IPv4       net.IP
-}
-
 type PodInformer struct {
 	factory kubeinformers.SharedInformerFactory
 }
@@ -44,10 +34,18 @@ func (i *PodInformer) Run() {
 func generatePodInfo(event string, data interface{}) *PodInfo {
 	pod := data.(*corev1.Pod)
 	podName := pod.ObjectMeta.Name
+	for _, cond := range pod.Status.Conditions {
+		if cond.Type == "Ready" && cond.Status == "False" {
+			glog.Warningf("ignoring pod %s for updates with unready status\n", podName)
+			return nil
+		}
+	}
+	glog.Infof("===\n%+v\n===\n", pod.Status)
+	//  Conditions:[{Type:Initialized Status:True LastProbeTime:0001-01-01 00:00:00 +0000 UTC LastTransitionTime:2022-09-25 19:27:15 +0200 CEST Reason: Message:} {Type:Ready Status:False
 	podNamespace := pod.ObjectMeta.Namespace
 	podAnnotation, err := parseAnnotation(pod.ObjectMeta.Annotations[*annotationKey])
 	if err != nil {
-		glog.Errorf("ignoring pod %s with invalid annotation, error: '%v'\n", podName, err)
+		glog.Warningf("ignoring pod %s with invalid annotation, error: '%v'\n", podName, err)
 		return nil
 	}
 	info := &PodInfo{
@@ -56,7 +54,8 @@ func generatePodInfo(event string, data interface{}) *PodInfo {
 		Namespace:  podNamespace,
 		Node:       shortHostName(pod.Spec.NodeName),
 		Annotation: podAnnotation,
-		IPv4:       net.ParseIP(pod.Status.PodIP),
+		Labels:     pod.ObjectMeta.Labels,
+		IPv4:       parseIP(pod.Status.PodIP),
 	}
 	return info
 }

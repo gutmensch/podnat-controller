@@ -17,6 +17,14 @@ func abs(n int16) int16 {
 	return (n ^ y) - y
 }
 
+func parseIP(ip string) net.Addr {
+	_ip, err := net.ResolveIPAddr("ip", ip)
+	if err != nil {
+		return nil
+	}
+	return _ip
+}
+
 func ptr[T any](t T) *T {
 	return &t
 }
@@ -59,7 +67,7 @@ func getPublicIPAddress(version uint8) (net.Addr, error) {
 			// RFC 1918
 			"10.0.0.0/8",
 			"172.16.0.0/12",
-			"192.168.0.0/16",
+			//"192.168.0.0/16",
 			// RFC 3927
 			"169.254.0.0/16",
 			// RFC 6598
@@ -78,6 +86,7 @@ func getPublicIPAddress(version uint8) (net.Addr, error) {
 		}
 		return !f.Blocked(b)
 	})
+
 	// TODO: stupidly getting first address of version
 	for _, addr := range filteredList {
 		if version == 4 && strings.Contains(addr.String(), ".") {

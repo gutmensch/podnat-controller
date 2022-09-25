@@ -8,18 +8,6 @@ import (
 	"golang.org/x/exp/slices"
 )
 
-type PodNatAnnotation struct {
-	TableEntries []NATDefinition `json:"entries"`
-}
-
-type NATDefinition struct {
-	InterfaceAutoDetect bool    `json:"ifaceAuto"`
-	SourceIP            *string `json:"srcIP"`
-	SourcePort          uint16  `json:"srcPort"`
-	DestinationPort     uint16  `json:"dstPort"`
-	Protocol            string  `json:"proto"`
-}
-
 // inject default values with custom unmarshaler
 func (c *NATDefinition) UnmarshalJSON(data []byte) error {
 	pd := &struct {
