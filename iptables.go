@@ -20,7 +20,7 @@ type IpTablesProcessor struct {
 	rules                 map[string]*IpTablesRule
 	publicNodeIP          net.Addr
 	ruleStalenessDuration time.Duration
-	internalNetwork       string
+	internalNetworks      []string
 }
 
 func (p *IpTablesProcessor) Apply(event *PodInfo) error {
@@ -166,6 +166,35 @@ func (p *IpTablesProcessor) ensureJumpToChain(chain IpTablesChain) error {
 	return nil
 }
 
+func (p *IpTablesProcessor) ensureDefaults(chain IpTablesChain) error {
+	switch chain.JumpFrom {
+	case "POSTROUTING":
+		// avoid NAT for internal network traffic
+		for i, n := range p.internalNetworks {
+			ruleSpec := []string{
+				"-d", n, "-m", "comment", "--comment", fmt.Sprintf("%s[no_snat_for_internal]", *resourcePrefix), "-j", "RETURN",
+			}
+			ruleExists, err := p.ipt.Exists(chain.Table, chain.Name, ruleSpec...)
+			if err != nil {
+				glog.Errorf("checking for existing rule %v in table %s failed: %v\n", ruleSpec, chain.Table, err)
+				return err
+			}
+			if ruleExists {
+				continue
+			}
+			err = p.ipt.Insert(chain.Table, chain.Name, i+1, ruleSpec...)
+			if err != nil {
+				glog.Errorf("adding rule %v in table %s failed: %v\n", ruleSpec, chain.Table, err)
+				return err
+			}
+		}
+	default:
+		glog.Infof("no defaults for chain %s defined, skipping\n", chain.Name)
+	}
+
+	return nil
+}
+
 // TODO
 // 1. -t filter -A FORWARD -d 10.244.5.22/32 -p tcp -m conntrack --ctstate NEW -m tcp -m multiport --dports 80,443 -m comment --comment "ansible[v4_filter]" -j ACCEPT
 // 2. -t nat -A PREROUTING -d 65.108.70.29/32 -p tcp -m tcp --dport 80 -m comment --comment "ansible[v4_nat]" -j DNAT --to-destination 10.244.5.22:80
@@ -195,7 +224,7 @@ func (p *IpTablesProcessor) getRule(chain IpTablesChain, rule *IpTablesRule) []s
 		}
 	case "POSTROUTING":
 		return []string{
-			"-s", fmt.Sprintf("%s/32", rule.DestinationIP.String()), "!", "-d", p.internalNetwork, "-p", rule.Protocol,
+			"-s", fmt.Sprintf("%s/32", rule.DestinationIP.String()), "-p", rule.Protocol,
 			"-m", "comment", "--comment", rule.Comment, "-j", "SNAT", "--to", rule.SourceIP.String(),
 		}
 	}
@@ -295,13 +324,25 @@ func (p *IpTablesProcessor) init() error {
 				),
 			)
 		}
+
+		if err := p.ensureDefaults(chain); err != nil {
+			return errors.New(
+				fmt.Sprintf(
+					"setup default iptables chain rules %s in table %s failed with error %v\n",
+					chain.Name,
+					chain.Table,
+					err,
+				),
+			)
+		}
+
 	}
 
 	// TODO: better error handling and configuration
 	p.rules = make(map[string]*IpTablesRule)
 	p.publicNodeIP, _ = getPublicIPAddress(4)
 	p.ruleStalenessDuration, _ = time.ParseDuration("300s")
-	p.internalNetwork = "10.0.0.0/8"
+	p.internalNetworks = []string{"172.16.0.0/12", "192.168.0.0/16", "10.0.0.0/8", "127.0.0.0/8"}
 
 	return nil
 }

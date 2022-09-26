@@ -89,11 +89,17 @@ func getPublicIPAddress(version uint8) (net.Addr, error) {
 
 	// TODO: stupidly getting first address of version
 	for _, addr := range filteredList {
-		if version == 4 && strings.Contains(addr.String(), ".") {
-			return addr, nil
+		var _temp string
+		if strings.Contains(addr.String(), "/") {
+			_temp = strings.Split(addr.String(), "/")[0]
+		} else {
+			_temp = addr.String()
 		}
-		if version == 6 && strings.Contains(addr.String(), ":") {
-			return addr, nil
+		if version == 4 && strings.Contains(_temp, ".") {
+			return parseIP(_temp), nil
+		}
+		if version == 6 && strings.Contains(_temp, ":") {
+			return parseIP(_temp), nil
 		}
 	}
 
