@@ -17,7 +17,7 @@ var (
 func init() {
 	annotationKey = flag.String("annotationkey", "bln.space/podnat", "pod annotation key for iptables NAT trigger")
 	httpPort = flag.Int("httpport", 8484, "http service port number")
-	informerResync = flag.Int("informerresync", 60, "kubernetes informer resync interval")
+	informerResync = flag.Int("informerresync", 600, "kubernetes informer resync interval")
 	dryRun = flag.Bool("dryrun", false, "execute iptables commands or print only")
 	restrictedPorts = []uint16{22, 53, 6443}
 	restrictedPortsEnable = flag.Bool("restrictedportsenable", false, "allow to also NAT restricted ports like 22 or 6443")
