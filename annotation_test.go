@@ -37,7 +37,7 @@ func TestBadPortAnnotationJSON(t *testing.T) {
 	]}`
 
 	_, err := parseAnnotation(input)
-	if err != errors.New("port 0 is reserved and cannot be used") {
+	if err.Error() != errors.New("port 0 is reserved and cannot be used").Error() {
 		t.Fatal("Expected error 'port 0 is reserved and cannot be used' but got", err)
 	}
 }

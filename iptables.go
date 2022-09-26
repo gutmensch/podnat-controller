@@ -80,7 +80,7 @@ func (p *IpTablesProcessor) Apply(event *PodInfo) error {
 		// conflict - at this point we have an existing entry that has not gone stale yet and has not been removed
 		// yet, so we are refusing any overwriting. when the reconciling has deleted the stale entries, the next
 		// pod update cycle will successfully create the entry, which was a conflict here before
-		glog.Warningf("cowardly refusing to add new overwriting NAT rule entry for %s => %s:%s, it might succeed later.\n",
+		glog.Warningf("cowardly refusing to add new overwriting NAT rule entry for %s => %s:%d, it might succeed later.\n",
 			key, event.IPv4, entry.DestinationPort)
 	}
 
@@ -213,14 +213,14 @@ func (p *IpTablesProcessor) getRule(chain IpTablesChain, rule *IpTablesRule) []s
 	case "FORWARD":
 		return []string{
 			"-d", fmt.Sprintf("%s/32", rule.DestinationIP.String()), "-p", rule.Protocol,
-			"-m", "conntrack", "--ctstate", "NEW", "-m", rule.Protocol, "--dport", string(rule.DestinationPort),
+			"-m", "conntrack", "--ctstate", "NEW", "-m", rule.Protocol, "--dport", fmt.Sprint(rule.DestinationPort),
 			"-m", "comment", "--comment", rule.Comment, "-j", "ACCEPT",
 		}
 	case "PREROUTING":
 		return []string{
 			"-d", fmt.Sprintf("%s/32", rule.SourceIP.String()), "-p", rule.Protocol, "-m", rule.Protocol,
-			"--dport", string(rule.DestinationPort), "-m", "comment", "--comment", rule.Comment, "-j", "DNAT",
-			"--to-destination", fmt.Sprintf("%s:%s", rule.DestinationIP, rule.DestinationPort),
+			"--dport", fmt.Sprint(rule.DestinationPort), "-m", "comment", "--comment", rule.Comment, "-j", "DNAT",
+			"--to-destination", fmt.Sprintf("%s:%d", rule.DestinationIP, rule.DestinationPort),
 		}
 	case "POSTROUTING":
 		return []string{
