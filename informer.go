@@ -52,7 +52,7 @@ func generatePodInfo(event string, data interface{}) *PodInfo {
 	return info
 }
 
-func filterForAnnotationAndPlacement(data interface{}) bool {
+func filterForAnnotationAndPlacement(event string, data interface{}) bool {
 	pod := data.(*corev1.Pod)
 
 	// IP not yet assigned, wait for next update cycle
@@ -67,7 +67,7 @@ func filterForAnnotationAndPlacement(data interface{}) bool {
 
 	// pod not ready (also avoids noise during pod replacement updates)
 	for _, cond := range pod.Status.Conditions {
-		if cond.Type == "Ready" && cond.Status == "False" {
+		if cond.Type == "Ready" && cond.Status == "False" && event == "update" {
 			return false
 		}
 	}
@@ -98,7 +98,7 @@ func NewPodInformer(subscriber []string, events chan<- *PodInfo) *PodInformer {
 	}
 	in.factory.Core().V1().Pods().Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			if slices.Contains(subscriber, "add") && filterForAnnotationAndPlacement(obj) {
+			if slices.Contains(subscriber, "add") && filterForAnnotationAndPlacement("add", obj) {
 				pod := generatePodInfo("add", obj)
 				if pod != nil {
 					glog.Infof("new pod added, matched filters: %s \n", pod.Name)
@@ -107,7 +107,7 @@ func NewPodInformer(subscriber []string, events chan<- *PodInfo) *PodInformer {
 			}
 		},
 		DeleteFunc: func(obj interface{}) {
-			if slices.Contains(subscriber, "delete") && filterForAnnotationAndPlacement(obj) {
+			if slices.Contains(subscriber, "delete") && filterForAnnotationAndPlacement("delete", obj) {
 				pod := generatePodInfo("delete", obj)
 				if pod != nil {
 					glog.Infof("pod deleted, matched filters: %s \n", pod.Name)
@@ -116,7 +116,7 @@ func NewPodInformer(subscriber []string, events chan<- *PodInfo) *PodInformer {
 			}
 		},
 		UpdateFunc: func(oldObj, newObj interface{}) {
-			if slices.Contains(subscriber, "update") && filterForAnnotationAndPlacement(newObj) {
+			if slices.Contains(subscriber, "update") && filterForAnnotationAndPlacement("update", newObj) {
 				pod := generatePodInfo("update", newObj)
 				if pod != nil {
 					glog.Infof("pod updated, matched filters: %s \n", pod.Name)

@@ -113,14 +113,12 @@ func (p *IpTablesProcessor) computeRulePosition(chain IpTablesChain) int {
 	defaultPosition := 1
 
 	listRules, err := p.ipt.List(chain.Table, chain.JumpFrom)
-	glog.Infof("listRules: %v\n", listRules)
 	if err != nil {
 		glog.Errorf("failed listing jumpfrom chain '%s' in table '%s': %v\n", chain.JumpFrom, chain.Table, err)
 		return defaultPosition
 	}
 	// policy is first entry in rules list, real rules start with 1
 	entryCount := int16(len(listRules)) - 1
-	glog.Infof("jumpfrompos: %d entryCount: %d\n", chain.JumpFromPos, entryCount)
 
 	var pos int16
 	switch {
@@ -195,19 +193,6 @@ func (p *IpTablesProcessor) ensureDefaults(chain IpTablesChain) error {
 	return nil
 }
 
-// TODO
-// 1. -t filter -A FORWARD -d 10.244.5.22/32 -p tcp -m conntrack --ctstate NEW -m tcp -m multiport --dports 80,443 -m comment --comment "ansible[v4_filter]" -j ACCEPT
-// 2. -t nat -A PREROUTING -d 65.108.70.29/32 -p tcp -m tcp --dport 80 -m comment --comment "ansible[v4_nat]" -j DNAT --to-destination 10.244.5.22:80
-//    -t nat -A PREROUTING -d 65.108.70.29/32 -p tcp -m tcp --dport 443 -m comment --comment "ansible[v4_nat]" -j DNAT --to-destination 10.244.5.22:443
-// 3. -t nat -A CILIUM_POST_nat -s 10.244.4.0/22 ! -d 10.244.4.0/22 ! -o cilium_+ -m comment --comment "cilium masquerade non-cluster" -j MASQUERADE
-// -A POSTROUTING -s 10.0.0.0/24 -m comment --comment "ansible[default_nat]: ansible[default_nat]" -j MASQ_FILTER
-// Match rule specifying a source port
-// Below makes sure packets from Eth Devices have correct source IP Address Notice, when specifying a port, protocol needs to be specified as well
-//
-// iptables -t nat -A POSTROUTING -o wlan0 -s 192.168.1.2 -p udp --dport 16020 -j SNAT --to 10.1.1.7:51889
-// iptables -t nat -A POSTROUTING -o wlan0 -s 192.168.1.2 -p tcp --dport 21 -j SNAT --to 10.1.1.7:21
-// iptables -t nat -A POSTROUTING -o wlan0 -s 192.168.1.3 -j SNAT --to 10.1.1.9
-
 func (p *IpTablesProcessor) getRule(chain IpTablesChain, rule *IpTablesRule) []string {
 	switch chain.JumpFrom {
 	case "FORWARD":
@@ -219,7 +204,7 @@ func (p *IpTablesProcessor) getRule(chain IpTablesChain, rule *IpTablesRule) []s
 	case "PREROUTING":
 		return []string{
 			"-d", fmt.Sprintf("%s/32", rule.SourceIP.String()), "-p", rule.Protocol, "-m", rule.Protocol,
-			"--dport", fmt.Sprint(rule.DestinationPort), "-m", "comment", "--comment", rule.Comment, "-j", "DNAT",
+			"--dport", fmt.Sprint(rule.SourcePort), "-m", "comment", "--comment", rule.Comment, "-j", "DNAT",
 			"--to-destination", fmt.Sprintf("%s:%d", rule.DestinationIP, rule.DestinationPort),
 		}
 	case "POSTROUTING":
@@ -267,7 +252,7 @@ func (p *IpTablesProcessor) reconcileRules() error {
 
 		// compare iptables state vs. our rule state
 		for _, chain := range p.chains {
-			err := p.ipt.AppendUnique(chain.Table, chain.JumpFrom, p.getRule(chain, rule)...)
+			err := p.ipt.AppendUnique(chain.Table, chain.Name, p.getRule(chain, rule)...)
 			if err != nil {
 				return errors.New(
 					fmt.Sprintf("failed appending rule for existing rule '%v' in chain '%s': %v\n", rule, chain.Name, err),
@@ -279,6 +264,12 @@ func (p *IpTablesProcessor) reconcileRules() error {
 }
 
 func (p *IpTablesProcessor) init() error {
+	// TODO: better error handling and configuration
+	p.rules = make(map[string]*IpTablesRule)
+	p.publicNodeIP, _ = getPublicIPAddress(4)
+	p.ruleStalenessDuration, _ = time.ParseDuration("300s")
+	p.internalNetworks = []string{"172.16.0.0/12", "192.168.0.0/16", "10.0.0.0/8", "127.0.0.0/8"}
+
 	//   positive number = actual position in chain, if not enough rules, then use last position
 	//   negative number = go back from end of current list and insert there, or use last position if not enough rules
 	p.chains = []IpTablesChain{
@@ -337,12 +328,6 @@ func (p *IpTablesProcessor) init() error {
 		}
 
 	}
-
-	// TODO: better error handling and configuration
-	p.rules = make(map[string]*IpTablesRule)
-	p.publicNodeIP, _ = getPublicIPAddress(4)
-	p.ruleStalenessDuration, _ = time.ParseDuration("300s")
-	p.internalNetworks = []string{"172.16.0.0/12", "192.168.0.0/16", "10.0.0.0/8", "127.0.0.0/8"}
 
 	return nil
 }
