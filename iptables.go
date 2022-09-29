@@ -267,7 +267,7 @@ func (p *IpTablesProcessor) init() error {
 	// TODO: better error handling and configuration
 	p.rules = make(map[string]*IpTablesRule)
 	p.publicNodeIP, _ = getPublicIPAddress(4)
-	p.ruleStalenessDuration, _ = time.ParseDuration("300s")
+	p.ruleStalenessDuration, _ = time.ParseDuration("600s")
 	p.internalNetworks = []string{"172.16.0.0/12", "192.168.0.0/16", "10.0.0.0/8", "127.0.0.0/8"}
 
 	//   positive number = actual position in chain, if not enough rules, then use last position
