@@ -80,7 +80,7 @@ func filterForAnnotationAndPlacement(event string, data interface{}) bool {
 	return false
 }
 
-func NewPodInformer(subscriber []string, events chan<- *PodInfo) *PodInformer {
+func NewPodInformer(subscriber []string, resync int, events chan<- *PodInfo) *PodInformer {
 	kubeconfig := getEnv("KUBECONFIG", "")
 	config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
 	if err != nil {
@@ -94,7 +94,7 @@ func NewPodInformer(subscriber []string, events chan<- *PodInfo) *PodInformer {
 	}
 
 	in := &PodInformer{
-		factory: kubeinformers.NewSharedInformerFactory(clientset, time.Duration(*informerResync)*time.Second),
+		factory: kubeinformers.NewSharedInformerFactory(clientset, time.Duration(resync)*time.Second),
 	}
 	in.factory.Core().V1().Pods().Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {

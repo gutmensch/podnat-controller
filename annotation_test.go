@@ -12,7 +12,7 @@ func TestGoodAnnotationJSON(t *testing.T) {
 	{"ifaceAuto":false,"srcIP":"192.168.1.10","srcPort":143,"dstPort":143},
 	{"srcPort":8888,"dstPort":18888,"proto":"udp"}
 	]}`
-	expectedOutput := &PodNatAnnotation{
+	expectedOutput := &PodNATAnnotation{
 		TableEntries: []NATDefinition{
 			{InterfaceAutoDetect: true, SourceIP: nil, SourcePort: 25, DestinationPort: 25, Protocol: "tcp"},
 			{InterfaceAutoDetect: false, SourceIP: ptr("192.168.1.10"), SourcePort: 143, DestinationPort: 143, Protocol: "tcp"},

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
@@ -17,10 +18,11 @@ import (
 type IpTablesProcessor struct {
 	ipt                   *iptables.IPTables
 	chains                []IpTablesChain
-	rules                 map[string]*IpTablesRule
+	rules                 map[string]*NATRule
 	publicNodeIP          net.Addr
 	ruleStalenessDuration time.Duration
 	internalNetworks      []string
+	state                 RemoteStateStore
 }
 
 func (p *IpTablesProcessor) Apply(event *PodInfo) error {
@@ -43,9 +45,9 @@ func (p *IpTablesProcessor) Apply(event *PodInfo) error {
 		// new entry, no old mapping found => create rule
 		if _, ok := p.rules[key]; !ok {
 			glog.Infof("creating new NAT rule for %s => %s:%d\n", key, event.IPv4, entry.DestinationPort)
-			p.rules[key] = &IpTablesRule{
-				SourceIP:        effSourceIP,
-				DestinationIP:   event.IPv4,
+			p.rules[key] = &NATRule{
+				SourceIP:        effSourceIP.(*net.IPAddr),
+				DestinationIP:   event.IPv4.(*net.IPAddr),
 				SourcePort:      entry.SourcePort,
 				DestinationPort: entry.DestinationPort,
 				Protocol:        entry.Protocol,
@@ -72,7 +74,7 @@ func (p *IpTablesProcessor) Apply(event *PodInfo) error {
 			p.rules[key].LastVerified = time.Now()
 			p.rules[key].OldDestinationIP = currVal.DestinationIP
 			p.rules[key].OldDestinationPort = currVal.DestinationPort
-			p.rules[key].DestinationIP = event.IPv4
+			p.rules[key].DestinationIP = event.IPv4.(*net.IPAddr)
 			p.rules[key].DestinationPort = entry.DestinationPort
 			continue
 		}
@@ -83,6 +85,8 @@ func (p *IpTablesProcessor) Apply(event *PodInfo) error {
 		glog.Warningf("cowardly refusing to add new overwriting NAT rule entry for %s => %s:%d, it might succeed later.\n",
 			key, event.IPv4, entry.DestinationPort)
 	}
+
+	p.syncState()
 
 	if err := p.reconcileRules(); err != nil {
 		glog.Errorf("reconciling rules failed with error: %v\n", err)
@@ -193,7 +197,7 @@ func (p *IpTablesProcessor) ensureDefaults(chain IpTablesChain) error {
 	return nil
 }
 
-func (p *IpTablesProcessor) getRule(chain IpTablesChain, rule *IpTablesRule) []string {
+func (p *IpTablesProcessor) getRule(chain IpTablesChain, rule *NATRule) []string {
 	switch chain.JumpFrom {
 	case "FORWARD":
 		return []string{
@@ -235,7 +239,7 @@ func (p *IpTablesProcessor) reconcileRules() error {
 		// remove rule entries where an updated pod ip target exists
 		if rule.OldDestinationIP != nil && rule.OldDestinationPort != 0 {
 			for _, chain := range p.chains {
-				_rule := &IpTablesRule{
+				_rule := &NATRule{
 					DestinationIP:   rule.OldDestinationIP,
 					DestinationPort: rule.OldDestinationPort,
 					SourceIP:        rule.SourceIP,
@@ -260,12 +264,40 @@ func (p *IpTablesProcessor) reconcileRules() error {
 			}
 		}
 	}
+
+	p.syncState()
+
 	return nil
 }
 
-func (p *IpTablesProcessor) init() error {
+func (p *IpTablesProcessor) fetchState() {
+	bytes, err := p.state.Get()
+	if err != nil {
+		glog.Warningf("could not read remote state: %v\n", err)
+		goto _default
+	}
+	err = json.Unmarshal(bytes, &p.rules)
+	if err != nil {
+		glog.Warningf("state format malformed: %v\n%v\n", string(bytes), err)
+		goto _default
+	}
+	return
+
+_default:
+	p.rules = make(map[string]*NATRule)
+}
+
+func (p *IpTablesProcessor) syncState() {
 	// TODO: better error handling and configuration
-	p.rules = make(map[string]*IpTablesRule)
+	err := p.state.Put(p.rules)
+	if err != nil {
+		glog.Warningf("could not sync to remote state: %v\n", err)
+	}
+}
+
+func (p *IpTablesProcessor) init() error {
+	p.rules = make(map[string]*NATRule)
+	p.fetchState()
 	p.publicNodeIP, _ = getPublicIPAddress(4)
 	p.ruleStalenessDuration, _ = time.ParseDuration("600s")
 	p.internalNetworks = []string{"172.16.0.0/12", "192.168.0.0/16", "10.0.0.0/8", "127.0.0.0/8"}
@@ -333,14 +365,15 @@ func (p *IpTablesProcessor) init() error {
 }
 
 // TODO: add v6 iptables support
-func NewIpTablesProcessor() *IpTablesProcessor {
+func NewIpTablesProcessor(remoteState RemoteStateStore) *IpTablesProcessor {
 	ipt, err := iptables.New()
 	if err != nil {
 		glog.Errorf("initializing of iptables failed: %v\n", err)
 	}
 
 	proc := &IpTablesProcessor{
-		ipt: ipt,
+		ipt:   ipt,
+		state: remoteState,
 	}
 
 	if err = proc.init(); err != nil {

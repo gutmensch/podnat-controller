@@ -33,8 +33,8 @@ func (c *NATDefinition) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-func parseAnnotation(data string) (*PodNatAnnotation, error) {
-	pa := &PodNatAnnotation{}
+func parseAnnotation(data string) (*PodNATAnnotation, error) {
+	pa := &PodNATAnnotation{}
 
 	err := json.Unmarshal([]byte(data), pa)
 	if err != nil {
