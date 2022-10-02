@@ -18,7 +18,7 @@ func abs(n int16) int16 {
 	return (n ^ y) - y
 }
 
-func parseIP(ip string) net.Addr {
+func parseIP(ip string) *net.IPAddr {
 	_ip, err := net.ResolveIPAddr("ip", ip)
 	if err != nil {
 		return nil
@@ -54,7 +54,7 @@ func filterIPs(collection []net.Addr, fn func(elem net.Addr) bool) []net.Addr {
 	return result
 }
 
-func getPublicIPAddress(version uint8) (net.Addr, error) {
+func getPublicIPAddress(version uint8) (*net.IPAddr, error) {
 	list, err := net.InterfaceAddrs()
 	if err != nil {
 		glog.Errorf("%v\n", err)

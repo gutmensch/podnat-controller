@@ -19,7 +19,7 @@ type IpTablesProcessor struct {
 	ipt                   *iptables.IPTables
 	chains                []IpTablesChain
 	rules                 map[string]*NATRule
-	publicNodeIP          net.Addr
+	publicNodeIP          *net.IPAddr
 	ruleStalenessDuration time.Duration
 	internalNetworks      []string
 	state                 StateStore
@@ -28,7 +28,7 @@ type IpTablesProcessor struct {
 func (p *IpTablesProcessor) Apply(event *PodInfo) error {
 	for _, entry := range event.Annotation.TableEntries {
 
-		var effSourceIP net.Addr
+		var effSourceIP *net.IPAddr
 		if entry.SourceIP != nil {
 			effSourceIP = parseIP(*entry.SourceIP)
 		} else {
@@ -46,8 +46,8 @@ func (p *IpTablesProcessor) Apply(event *PodInfo) error {
 		if _, ok := p.rules[key]; !ok {
 			glog.Infof("creating new NAT rule for %s => %s:%d\n", key, event.IPv4, entry.DestinationPort)
 			p.rules[key] = &NATRule{
-				SourceIP:        effSourceIP.(*net.IPAddr),
-				DestinationIP:   event.IPv4.(*net.IPAddr),
+				SourceIP:        effSourceIP,
+				DestinationIP:   event.IPv4,
 				SourcePort:      entry.SourcePort,
 				DestinationPort: entry.DestinationPort,
 				Protocol:        entry.Protocol,
@@ -74,7 +74,7 @@ func (p *IpTablesProcessor) Apply(event *PodInfo) error {
 			p.rules[key].LastVerified = time.Now()
 			p.rules[key].OldDestinationIP = currVal.DestinationIP
 			p.rules[key].OldDestinationPort = currVal.DestinationPort
-			p.rules[key].DestinationIP = event.IPv4.(*net.IPAddr)
+			p.rules[key].DestinationIP = event.IPv4
 			p.rules[key].DestinationPort = entry.DestinationPort
 			continue
 		}

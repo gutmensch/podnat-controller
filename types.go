@@ -13,7 +13,7 @@ type PodInfo struct {
 	Node       string
 	Annotation *PodNATAnnotation
 	Labels     map[string]string
-	IPv4       net.Addr
+	IPv4       *net.IPAddr
 }
 
 type PodNATAnnotation struct {
