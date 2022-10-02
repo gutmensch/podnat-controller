@@ -22,7 +22,7 @@ type IpTablesProcessor struct {
 	publicNodeIP          net.Addr
 	ruleStalenessDuration time.Duration
 	internalNetworks      []string
-	state                 RemoteStateStore
+	state                 StateStore
 }
 
 func (p *IpTablesProcessor) Apply(event *PodInfo) error {
@@ -296,7 +296,6 @@ func (p *IpTablesProcessor) syncState() {
 }
 
 func (p *IpTablesProcessor) init() error {
-	p.rules = make(map[string]*NATRule)
 	p.fetchState()
 	p.publicNodeIP, _ = getPublicIPAddress(4)
 	p.ruleStalenessDuration, _ = time.ParseDuration("600s")
@@ -365,7 +364,7 @@ func (p *IpTablesProcessor) init() error {
 }
 
 // TODO: add v6 iptables support
-func NewIpTablesProcessor(remoteState RemoteStateStore) *IpTablesProcessor {
+func NewIpTablesProcessor(remoteState StateStore) *IpTablesProcessor {
 	ipt, err := iptables.New()
 	if err != nil {
 		glog.Errorf("initializing of iptables failed: %v\n", err)

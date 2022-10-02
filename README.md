@@ -42,7 +42,7 @@ Dry-run will print firewall changes only. The controller filters for its own kub
 ```
 export KUBECONFIG=$HOME/.kube/config
 go build
-HOSTNAME=<kubernetes_node_name> ./podnat-controller -logtostderr -dryrun
+HOSTNAME=<kubernetes_node_name> ./podnat-controller -stateuri http://localhost:8080 -internalnetwork 192.168.0.0/16 -logtostderr -dryrun
 ```
 
 ## Limitations

@@ -3,17 +3,17 @@ package main
 import "flag"
 
 var (
-	annotationKey         *string
-	httpPort              *int
-	informerResync        *int
-	dryRun                *bool
-	restrictedPorts       []uint16
-	restrictedPortsEnable *bool
-	firewallFlavor        *string
-	resourcePrefix        *string
-	stateURI              *string
-	stateFlavor           *string
-	fwProc                FirewallProcessor
+	annotationKey   *string
+	httpPort        *int
+	informerResync  *int
+	dryRun          *bool
+	restrictedPorts *string
+	firewallFlavor  *string
+	internalNetwork *string
+	resourcePrefix  *string
+	stateFlavor     *string
+	stateURI        *string
+	fwProc          FirewallProcessor
 )
 
 func init() {
@@ -21,12 +21,12 @@ func init() {
 	httpPort = flag.Int("httpport", 8484, "http service port number")
 	informerResync = flag.Int("informerresync", 180, "kubernetes informer resync interval")
 	dryRun = flag.Bool("dryrun", false, "execute iptables commands or print only")
-	restrictedPorts = []uint16{22, 53, 6443}
-	restrictedPortsEnable = flag.Bool("restrictedportsenable", false, "allow to also NAT restricted ports like 22 or 6443")
+	restrictedPorts = flag.String("restrictedports", "22,53,6443", "restricted ports refused for NAT rule")
 	firewallFlavor = flag.String("firewallflavor", "iptables", "firewall implementation to use for NAT setup")
+	internalNetwork = flag.String("internalnetwork", "", "for hosts or tests without public IP allow an internal network")
 	resourcePrefix = flag.String("resourceprefix", "podnat", "resource prefix used for firewall chains and comments")
-	stateURI = flag.String("stateuri", "http://podnat-state-store:80", "uri for state store")
 	stateFlavor = flag.String("stateflavor", "webdav", "which state storage to use, e.g. webdav")
+	stateURI = flag.String("stateuri", "http://podnat-state-store:80", "uri for state store")
 }
 
 func main() {
@@ -42,9 +42,8 @@ func main() {
 
 	switch *firewallFlavor {
 	case "iptables":
-		// XXX: with iptables we need some remote state to survive pod/node restarts
-		// currently only side deployment with volume (webdav) supported
-		var remoteState RemoteStateStore
+		// XXX: with iptables we need a remote state to survive pod/node restarts
+		var remoteState StateStore
 		switch *stateFlavor {
 		default:
 			remoteState = NewWebDavState(*stateURI, "", "")
@@ -54,7 +53,6 @@ func main() {
 		fwProc = NewDummyProcessor()
 	}
 
-	// main loop: add/remove NAT entry for (dis)appearing pods
 	for {
 		podNatEvent := <-events
 		_ = fwProc.Apply(podNatEvent)

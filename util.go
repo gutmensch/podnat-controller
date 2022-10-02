@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/golang/glog"
@@ -61,21 +62,7 @@ func getPublicIPAddress(version uint8) (net.Addr, error) {
 	}
 
 	f := ipfilter.New(ipfilter.Options{
-		BlockedIPs: []string{
-			// loopback
-			"127.0.0.0/8",
-			// RFC 1918
-			"10.0.0.0/8",
-			"172.16.0.0/12",
-			"192.168.0.0/16",
-			// RFC 3927
-			"169.254.0.0/16",
-			// RFC 6598
-			"100.64.0.0/10",
-			"::1/128",
-			"fc00::/7",
-			"fe80::/10",
-		},
+		BlockedIPs:     getInternalNetworks(*internalNetwork),
 		BlockByDefault: false,
 	})
 
@@ -104,4 +91,41 @@ func getPublicIPAddress(version uint8) (net.Addr, error) {
 	}
 
 	return nil, nil
+}
+
+func getInternalNetworks(exclude string) []string {
+	internalNetworks := []string{
+		// loopback
+		"127.0.0.0/8",
+		// RFC 1918
+		"10.0.0.0/8",
+		"172.16.0.0/12",
+		"192.168.0.0/16",
+		// RFC 3927
+		"169.254.0.0/16",
+		// RFC 6598
+		"100.64.0.0/10",
+		"::1/128",
+		"fc00::/7",
+		"fe80::/10",
+	}
+	var result []string
+	for _, n := range internalNetworks {
+		if n != exclude {
+			result = append(result, n)
+		}
+	}
+	return result
+}
+
+func sliceAtoi(sa []string) ([]uint16, error) {
+	si := make([]uint16, 0, len(sa))
+	for _, a := range sa {
+		i, err := strconv.Atoi(a)
+		if err != nil {
+			return si, err
+		}
+		si = append(si, uint16(i))
+	}
+	return si, nil
 }

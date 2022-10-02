@@ -1,6 +1,6 @@
 package main
 
-type RemoteStateStore interface {
+type StateStore interface {
 	Get() ([]byte, error)
 	Put(data interface{}) error
 }
