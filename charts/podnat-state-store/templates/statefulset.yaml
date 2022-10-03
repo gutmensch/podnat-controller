@@ -5,6 +5,9 @@ metadata:
 spec:
   serviceName: {{ include "podnat-state-store.fullname" . }}
   replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "podnat-state-store.selectorLabels" . | nindent 6 }}
   template:
     metadata:
       {{- with .Values.podAnnotations }}
@@ -59,4 +62,4 @@ spec:
       accessModes: [ "ReadWriteOnce" ]
       resources:
         requests:
-          storage: {{ .Values.storage.size }}
+          storage: "{{ .Values.storage.size }}"
