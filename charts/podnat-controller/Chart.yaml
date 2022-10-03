@@ -2,9 +2,9 @@ apiVersion: v2
 name: podnat-controller
 description: A Helm chart for podnat-controller - a simple stupid NAT to pod service for bare metal/root server k8s clusters
 type: application
-version: 0.1.1
+version: 0.2.0
 appVersion: "0.0.21"
 dependencies:
 - name: podnat-state-store
-  version: "0.1.0"
+  version: "0.2.1"
   repository: "https://remembrance.github.io/podnat-controller"
