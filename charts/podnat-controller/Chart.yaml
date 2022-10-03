@@ -4,7 +4,7 @@ description: A Helm chart for podnat-controller - a simple stupid NAT to pod ser
 type: application
 version: 0.1.0
 appVersion: "0.0.20"
-#dependencies:
-#- name: podnat-state-store
-#  version: "0.1.0"
-#  repository: "https://remembrance.github.io/charts"
+dependencies:
+- name: podnat-state-store
+  version: "0.1.0"
+  repository: "https://remembrance.github.io/charts"
