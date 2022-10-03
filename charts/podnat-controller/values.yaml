@@ -1,0 +1,38 @@
+replicaCount: 1
+
+image:
+  repository: gutmensch/podnat-controller
+  pullPolicy: IfNotPresent
+  # Overrides the image tag whose default is the chart appVersion.
+  tag: ""
+
+extra_args: []
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+# used for k8s informer and pod updates
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+podAnnotations: {}
+
+podSecurityContext: {}
+
+# needed to update iptables rules on hostNetwork
+securityContext:
+  privileged: false
+  capabilities:
+    add:
+      - NET_ADMIN
+
+resources: {}
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
