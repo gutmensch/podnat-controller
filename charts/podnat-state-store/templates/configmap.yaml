@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "podnat-state-store.fullname" . }}
+  labels:
+    app.kubernetes.io/name: {{ include "podnat-state-store.fullname" . }}
+data:
+  PUID: "501"
+  PGID: "20"
+  TZ: "Europe/Berlin"
+  SERVER_NAMES: localhost,{{ include "podnat-state-store.fullname" . }},{{ include "podnat-state-store.fullname" . }}{{ printf ".%s.svc.cluster.local" .Release.Namespace }}
+  TIMEOUTS_S: "20"
+  CLIENT_MAX_BODY_SIZE: "1M"
