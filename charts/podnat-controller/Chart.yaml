@@ -7,4 +7,4 @@ appVersion: "0.0.20"
 dependencies:
 - name: podnat-state-store
   version: "0.1.0"
-  repository: "https://remembrance.github.io/charts"
+  repository: "https://remembrance.github.io/podnat-controller"
