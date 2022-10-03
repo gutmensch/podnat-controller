@@ -31,7 +31,7 @@ spec:
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           ports:
           - containerPort: 80
-            name: nginx
+            name: http
           envFrom:
           - configMapRef: 
               name: {{ include "podnat-state-store.fullname" . }}
