@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"sync"
 
@@ -38,18 +39,14 @@ func (s *WebDAVState) Get() ([]byte, error) {
 	if err != nil {
 		return nil, errors.New(fmt.Sprintf("could not read state: %v\n", err))
 	}
-	//var rules interface{}
-	//err = json.Unmarshal(bytes, &rules)
-	//if err != nil {
-	//	return nil, errors.New(fmt.Sprintf("could not decode json into data: %v\n", err))
-	//}
-	//return rules, nil
 	return bytes, nil
 }
 
 func (s *WebDAVState) init() error {
 	if err := s.Client.Mkdir(s.Directory, 0644); err != nil {
 		glog.Errorf("could not init state directory: %v\n", err)
+		// EREMOTEIO
+		os.Exit(121)
 	}
 	return nil
 }
