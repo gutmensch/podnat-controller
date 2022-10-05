@@ -60,6 +60,14 @@ func (p *IpTablesProcessor) Apply(event *PodInfo) error {
 
 		currVal := p.rules[key]
 
+		// delete event
+		if event.Event == "delete" && currVal.DestinationIP.String() == event.IPv4.String() &&
+			currVal.DestinationPort == entry.DestinationPort {
+			glog.Infof("marking NAT rule for deletion %s => %s:%d\n", key, event.IPv4, entry.DestinationPort)
+			p.rules[key].LastVerified = time.Now().Add(-p.ruleStalenessDuration)
+			continue
+		}
+
 		// same data, NOOP - only update LastVerified
 		if currVal.DestinationIP.String() == event.IPv4.String() && currVal.DestinationPort == entry.DestinationPort {
 			glog.Infof("no update needed for NAT rule %s => %s:%d\n", key, event.IPv4, entry.DestinationPort)
@@ -229,11 +237,11 @@ func (p *IpTablesProcessor) reconcileRules() error {
 
 		// remove stale rule entries
 		if time.Now().Sub(rule.LastVerified) >= p.ruleStalenessDuration {
-			delete(p.rules, k)
 			for _, chain := range p.chains {
 				err := p.ipt.DeleteIfExists(chain.Table, chain.Name, p.getRule(chain, rule)...)
 				glog.Warningf("failed deleting rule: %v\n", err)
 			}
+			delete(p.rules, k)
 		}
 
 		// remove rule entries where an updated pod ip target exists
