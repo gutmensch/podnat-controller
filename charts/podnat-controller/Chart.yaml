@@ -2,8 +2,8 @@ apiVersion: v2
 name: podnat-controller
 description: A Helm chart for podnat-controller - a simple stupid NAT to pod service for bare metal/root server k8s clusters
 type: application
-version: 0.2.4
-appVersion: "0.0.24"
+version: 0.2.5
+appVersion: "0.0.25"
 dependencies:
 - name: podnat-state-store
   version: "0.2.1"
