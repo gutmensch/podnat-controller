@@ -288,8 +288,22 @@ _default:
 }
 
 func (p *IpTablesProcessor) syncState() {
-	// TODO: better error handling and configuration
-	err := p.state.Put(p.rules)
+	_rules := make(map[string]*NATRule)
+	bytes, err := p.state.Get()
+	if err != nil {
+		goto _default
+	}
+	err = json.Unmarshal(bytes, &_rules)
+	if err != nil {
+		goto _default
+	}
+	if reflect.DeepEqual(_rules, p.rules) {
+		glog.Infof("remote state is in-sync, no upload needed.\n")
+		return
+	}
+
+_default:
+	err = p.state.Put(p.rules)
 	if err != nil {
 		glog.Warningf("could not sync to remote state: %v\n", err)
 	}
