@@ -296,21 +296,8 @@ _default:
 }
 
 func (p *IpTablesProcessor) syncState() {
-	_rules := make(map[string]*NATRule)
-	bytes, err := p.state.Get()
-	if err != nil {
-		goto _default
-	}
-	err = json.Unmarshal(bytes, &_rules)
-	if err != nil {
-		goto _default
-	}
-	if reflect.DeepEqual(_rules, p.rules) {
-		glog.Infof("remote state is in-sync, no upload needed.\n")
-		return
-	}
-
-_default:
+	// since LastVerified is updated every informer loop we
+	// need to write the state basically every time
 	err = p.state.Put(p.rules)
 	if err != nil {
 		glog.Warningf("could not sync to remote state: %v\n", err)
@@ -323,8 +310,8 @@ func (p *IpTablesProcessor) init() error {
 	p.ruleStalenessDuration, _ = time.ParseDuration("600s")
 	p.internalNetworks = []string{"172.16.0.0/12", "192.168.0.0/16", "10.0.0.0/8", "127.0.0.0/8"}
 
-	//   positive number = actual position in chain, if not enough rules, then use last position
-	//   negative number = go back from end of current list and insert there, or use last position if not enough rules
+	// positive number = actual position in chain, if not enough rules, then use last position
+	// negative number = go back from end of current list and insert there, or use last position if not enough rules
 	p.chains = []IpTablesChain{
 		{
 			Name:        strings.ToUpper(fmt.Sprintf("%s_FORWARD", *resourcePrefix)),
