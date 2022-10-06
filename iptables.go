@@ -298,7 +298,7 @@ _default:
 func (p *IpTablesProcessor) syncState() {
 	// since LastVerified is updated every informer loop we
 	// need to write the state basically every time
-	err = p.state.Put(p.rules)
+	err := p.state.Put(p.rules)
 	if err != nil {
 		glog.Warningf("could not sync to remote state: %v\n", err)
 	}
