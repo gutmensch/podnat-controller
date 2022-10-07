@@ -259,7 +259,10 @@ func (p *IpTablesProcessor) reconcileRules() error {
 					Comment:         rule.Comment,
 				}
 				err := p.ipt.DeleteIfExists(chain.Table, chain.Name, p.getRule(chain, _rule)...)
-				glog.Warningf("failed deleting rule: %v\n", err)
+				glog.Infof("deleting rule %v: %v\n", rule, p.getRule(chain, _rule))
+				if err != nil {
+					glog.Warningf("failed deleting rule %v: %v\n", _rule, err)
+				}
 			}
 			p.rules[k].OldDestinationIP = nil
 			p.rules[k].OldDestinationPort = 0
