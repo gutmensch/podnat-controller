@@ -238,8 +238,11 @@ func (p *IpTablesProcessor) reconcileRules() error {
 		// remove stale rule entries
 		if time.Now().Sub(rule.LastVerified) >= p.ruleStalenessDuration {
 			for _, chain := range p.chains {
+				glog.Infof("deleting rule %v: %v\n", rule, p.getRule(chain, rule))
 				err := p.ipt.DeleteIfExists(chain.Table, chain.Name, p.getRule(chain, rule)...)
-				glog.Warningf("failed deleting rule: %v\n", err)
+				if err != nil {
+					glog.Warningf("failed deleting rule %v: %v\n", rule, err)
+				}
 			}
 			delete(p.rules, k)
 		}
