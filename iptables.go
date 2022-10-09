@@ -233,7 +233,7 @@ func (p *IpTablesProcessor) getRule(chain IpTablesChain, rule *NATRule) []string
 	case "POSTROUTING":
 		return []string{
 			"-s", fmt.Sprintf("%s/32", rule.DestinationIP.String()), "-p", rule.Protocol,
-			"-m", "comment", "--comment", rule.Comment, "-j", "SNAT", "--to", rule.SourceIP.String(),
+			"-m", "comment", "--comment", rule.Comment, "-j", "SNAT", "--to-source", rule.SourceIP.String(),
 		}
 	}
 	return []string{}
@@ -260,13 +260,14 @@ func (p *IpTablesProcessor) reconcileRules() error {
 			// remove stale rule entries
 			if time.Now().Sub(rule.LastVerified) >= p.ruleStalenessDuration || rule.Created.Before(_lastRuleTimestamp) {
 				for _, chain := range p.chains {
-					glog.Infof("deleting rule %v: %v\n", rule, p.getRule(chain, rule))
+					glog.Infof("[chain:%s] deleting rule %v: %v\n", chain.Name, rule, p.getRule(chain, rule))
 					if *dryRun {
 						glog.Infof("dry-run activated, not applying rule: %v\n", rule)
-						err := p.ipt.DeleteIfExists(chain.Table, chain.Name, p.getRule(chain, rule)...)
-						if err != nil {
-							glog.Warningf("failed deleting rule %v: %v\n", rule, err)
-						}
+						continue
+					}
+					err := p.ipt.DeleteIfExists(chain.Table, chain.Name, p.getRule(chain, rule)...)
+					if err != nil {
+						glog.Warningf("failed deleting rule %v: %v\n", rule, err)
 					}
 				}
 				p.rules[k] = remove(p.rules[k], i)
