@@ -85,6 +85,12 @@ NATRULES:
 			}
 		}
 
+		// old pod entry potentially already deleted during update operation
+		// if delete we just skip to next rule
+		if event.Event == "delete" {
+			continue NATRULES
+		}
+
 		// case 4
 		glog.Infof("appending replacement NAT rule for %s => %s:%d (%s)\n", key, event.IPv4, entry.DestinationPort, event.Name)
 		p.rules[key] = append(p.rules[key], &NATRule{
