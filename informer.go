@@ -40,13 +40,13 @@ func generatePodInfo(event string, data interface{}) *PodInfo {
 		glog.Warningf("ignoring pod %s with invalid annotation, error: '%v'\n", podName, err)
 		return nil
 	}
+
 	info := &PodInfo{
 		Event:      event,
 		Name:       podName,
 		Namespace:  podNamespace,
 		Node:       shortHostName(pod.Spec.NodeName),
 		Annotation: podAnnotation,
-		Labels:     pod.ObjectMeta.Labels,
 		IPv4:       parseIP(pod.Status.PodIP),
 	}
 	return info

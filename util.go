@@ -18,6 +18,10 @@ func abs(n int16) int16 {
 	return (n ^ y) - y
 }
 
+func remove(s []*NATRule, index int) []*NATRule {
+	return append(s[:index], s[index+1:]...)
+}
+
 func parseIP(ip string) *net.IPAddr {
 	_ip, err := net.ResolveIPAddr("ip", ip)
 	if err != nil {

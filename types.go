@@ -12,7 +12,6 @@ type PodInfo struct {
 	Namespace  string
 	Node       string
 	Annotation *PodNATAnnotation
-	Labels     map[string]string
 	IPv4       *net.IPAddr
 }
 
@@ -29,16 +28,14 @@ type NATDefinition struct {
 }
 
 type NATRule struct {
-	Protocol           string            `json:"Protocol"`
-	SourceIP           *net.IPAddr       `json:"SourceIP"`
-	SourcePort         uint16            `json:"SourcePort"`
-	DestinationIP      *net.IPAddr       `json:"DestinationIP"`
-	DestinationPort    uint16            `json:"DestinationPort"`
-	OldDestinationIP   *net.IPAddr       `json:"OldDestinationIP"`
-	OldDestinationPort uint16            `json:"OldDestinationPort"`
-	LastVerified       time.Time         `json:"LastVerified"`
-	OriginLabels       map[string]string `json:"OriginLabels"`
-	Comment            string            `json:"Comment"`
+	Protocol        string      `json:"Protocol"`
+	SourceIP        *net.IPAddr `json:"SourceIP"`
+	SourcePort      uint16      `json:"SourcePort"`
+	DestinationIP   *net.IPAddr `json:"DestinationIP"`
+	DestinationPort uint16      `json:"DestinationPort"`
+	LastVerified    time.Time   `json:"LastVerified"`
+	Created         time.Time   `json:"Created"`
+	Comment         string      `json:"Comment"`
 }
 
 type IpTablesChain struct {

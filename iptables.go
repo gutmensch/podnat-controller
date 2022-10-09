@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"reflect"
 	"strings"
 	"time"
 
@@ -18,7 +17,7 @@ import (
 type IpTablesProcessor struct {
 	ipt                   *iptables.IPTables
 	chains                []IpTablesChain
-	rules                 map[string]*NATRule
+	rules                 map[string][]*NATRule
 	publicNodeIP          *net.IPAddr
 	ruleStalenessDuration time.Duration
 	internalNetworks      []string
@@ -26,6 +25,13 @@ type IpTablesProcessor struct {
 }
 
 func (p *IpTablesProcessor) Apply(event *PodInfo) error {
+	// cases
+	// 1. ip:port mapping does not exist at all and add event => simple add to slice
+	// 2. ip:port mapping does exist and delete event and same pod => simple delete from slice
+	// 3. ip:port mapping does exist and update event and same pod => update lastVerified for same pod
+	// 4. ip:port mapping does exist and add/update event from a new pod or namespace => add to slice (latest Created date will be reconciled in function)
+
+NATRULES:
 	for _, entry := range event.Annotation.TableEntries {
 
 		var effSourceIP *net.IPAddr
@@ -42,56 +48,55 @@ func (p *IpTablesProcessor) Apply(event *PodInfo) error {
 
 		key := fmt.Sprintf("%s:%d", effSourceIP, entry.SourcePort)
 
-		// new entry, no old mapping found => create rule
+		// case 1 - new entry
 		if _, ok := p.rules[key]; !ok {
 			glog.Infof("creating new NAT rule for %s => %s:%d\n", key, event.IPv4, entry.DestinationPort)
-			p.rules[key] = &NATRule{
+			p.rules[key] = append(p.rules[key], &NATRule{
 				SourceIP:        effSourceIP,
 				DestinationIP:   event.IPv4,
 				SourcePort:      entry.SourcePort,
 				DestinationPort: entry.DestinationPort,
 				Protocol:        entry.Protocol,
-				OriginLabels:    event.Labels,
+				Created:         time.Now(),
 				LastVerified:    time.Now(),
 				Comment:         fmt.Sprintf("%s:%s", event.Namespace, event.Name),
+			})
+			continue
+		}
+
+		// case 2 and 3
+		for i, pod := range p.rules[key] {
+			if pod.DestinationIP.String() == event.IPv4.String() && pod.DestinationPort == entry.DestinationPort {
+				switch event.Event {
+				case "delete":
+					glog.Infof(
+						"marking pod NAT rule for deletion %s => %s:%d (%s)\n",
+						key,
+						event.IPv4,
+						entry.DestinationPort,
+						event.Name,
+					)
+					p.rules[key][i].LastVerified = time.Now().Add(-p.ruleStalenessDuration)
+				case "update":
+					glog.Infof("refreshing pod NAT rule %s => %s:%d (%s)\n", key, event.IPv4, entry.DestinationPort, event.Name)
+					p.rules[key][i].LastVerified = time.Now()
+				}
+				continue NATRULES
 			}
-			continue
 		}
 
-		currVal := p.rules[key]
-
-		// delete event
-		if event.Event == "delete" && currVal.DestinationIP.String() == event.IPv4.String() &&
-			currVal.DestinationPort == entry.DestinationPort {
-			glog.Infof("marking NAT rule for deletion %s => %s:%d\n", key, event.IPv4, entry.DestinationPort)
-			p.rules[key].LastVerified = time.Now().Add(-p.ruleStalenessDuration)
-			continue
-		}
-
-		// same data, NOOP - only update LastVerified
-		if currVal.DestinationIP.String() == event.IPv4.String() && currVal.DestinationPort == entry.DestinationPort {
-			glog.Infof("no update needed for NAT rule %s => %s:%d\n", key, event.IPv4, entry.DestinationPort)
-			p.rules[key].LastVerified = time.Now()
-			continue
-		}
-
-		// conflict - pod update of existing deployment (e.g. replacement)
-		if reflect.DeepEqual(currVal.OriginLabels, event.Labels) {
-			glog.Infof("pod for NAT rule has been replaced, updating from %s => %s:%d to %s => %s:%d\n",
-				key, currVal.DestinationIP, currVal.DestinationPort, key, event.IPv4, entry.DestinationPort)
-			p.rules[key].LastVerified = time.Now()
-			p.rules[key].OldDestinationIP = currVal.DestinationIP
-			p.rules[key].OldDestinationPort = currVal.DestinationPort
-			p.rules[key].DestinationIP = event.IPv4
-			p.rules[key].DestinationPort = entry.DestinationPort
-			continue
-		}
-
-		// conflict - at this point we have an existing entry that has not gone stale yet and has not been removed
-		// yet, so we are refusing any overwriting. when the reconciling has deleted the stale entries, the next
-		// pod update cycle will successfully create the entry, which was a conflict here before
-		glog.Warningf("cowardly refusing to add new overwriting NAT rule entry for %s => %s:%d, it might succeed later.\n",
-			key, event.IPv4, entry.DestinationPort)
+		// case 4
+		glog.Infof("appending replacement NAT rule for %s => %s:%d (%s)\n", key, event.IPv4, entry.DestinationPort, event.Name)
+		p.rules[key] = append(p.rules[key], &NATRule{
+			SourceIP:        effSourceIP,
+			DestinationIP:   event.IPv4,
+			SourcePort:      entry.SourcePort,
+			DestinationPort: entry.DestinationPort,
+			Protocol:        entry.Protocol,
+			Created:         time.Now(),
+			LastVerified:    time.Now(),
+			Comment:         fmt.Sprintf("%s:%s", event.Namespace, event.Name),
+		})
 	}
 
 	p.syncState()
@@ -229,47 +234,57 @@ func (p *IpTablesProcessor) getRule(chain IpTablesChain, rule *NATRule) []string
 }
 
 func (p *IpTablesProcessor) reconcileRules() error {
-	for k, rule := range p.rules {
-		if *dryRun {
-			glog.Infof("dry-run activated, not applying rule: %v\n", rule)
+	for k, ruleList := range p.rules {
+		glog.Infof("ruleList: %s => %v\n", k, ruleList)
+
+		// get last rule
+		var _lastRuleTimestamp time.Time
+		for _, rule := range ruleList {
+			if _lastRuleTimestamp.IsZero() {
+				_lastRuleTimestamp = rule.Created
+			} else {
+				if rule.Created.After(_lastRuleTimestamp) {
+					_lastRuleTimestamp = rule.Created
+				}
+			}
+		}
+		glog.Infof("_lastRuleTimestamp: %v\n", _lastRuleTimestamp)
+
+		for i, rule := range ruleList {
+			// remove stale rule entries
+			if time.Now().Sub(rule.LastVerified) >= p.ruleStalenessDuration || rule.Created.Before(_lastRuleTimestamp) {
+				for _, chain := range p.chains {
+					glog.Infof("deleting rule %v: %v\n", rule, p.getRule(chain, rule))
+					if *dryRun {
+						glog.Infof("dry-run activated, not applying rule: %v\n", rule)
+						err := p.ipt.DeleteIfExists(chain.Table, chain.Name, p.getRule(chain, rule)...)
+						if err != nil {
+							glog.Warningf("failed deleting rule %v: %v\n", rule, err)
+						}
+					}
+				}
+				p.rules[k] = remove(p.rules[k], i)
+			}
+		}
+
+		// empty NAT mapping - delete
+		if len(p.rules[k]) == 0 {
+			glog.Infof("empty NAT mapping, removing: %v\n", p.rules[k])
+			delete(p.rules, k)
 			continue
 		}
 
-		// remove stale rule entries
-		if time.Now().Sub(rule.LastVerified) >= p.ruleStalenessDuration {
-			for _, chain := range p.chains {
-				glog.Infof("deleting rule %v: %v\n", rule, p.getRule(chain, rule))
-				err := p.ipt.DeleteIfExists(chain.Table, chain.Name, p.getRule(chain, rule)...)
-				if err != nil {
-					glog.Warningf("failed deleting rule %v: %v\n", rule, err)
-				}
-			}
-			delete(p.rules, k)
-		}
+		glog.Infof("rules left: %v\n", p.rules[k])
 
-		// remove rule entries where an updated pod ip target exists
-		if rule.OldDestinationIP != nil && rule.OldDestinationPort != 0 {
-			for _, chain := range p.chains {
-				_rule := &NATRule{
-					DestinationIP:   rule.OldDestinationIP,
-					DestinationPort: rule.OldDestinationPort,
-					SourceIP:        rule.SourceIP,
-					SourcePort:      rule.SourcePort,
-					Protocol:        rule.Protocol,
-					Comment:         rule.Comment,
-				}
-				err := p.ipt.DeleteIfExists(chain.Table, chain.Name, p.getRule(chain, _rule)...)
-				glog.Infof("deleting rule %v: %v\n", rule, p.getRule(chain, _rule))
-				if err != nil {
-					glog.Warningf("failed deleting rule %v: %v\n", _rule, err)
-				}
-			}
-			p.rules[k].OldDestinationIP = nil
-			p.rules[k].OldDestinationPort = 0
+		rule := p.rules[k][0]
+		if len(p.rules[k]) > 1 {
+			glog.Warningf("unexpected conflicting entries, choosing first in list: %v\n", rule)
 		}
-
-		// compare iptables state vs. our rule state
 		for _, chain := range p.chains {
+			if *dryRun {
+				glog.Infof("dry-run activated, not applying rule: %v in chain %s\n", rule, chain.Name)
+				continue
+			}
 			err := p.ipt.AppendUnique(chain.Table, chain.Name, p.getRule(chain, rule)...)
 			if err != nil {
 				return errors.New(
@@ -298,7 +313,7 @@ func (p *IpTablesProcessor) fetchState() {
 	return
 
 _default:
-	p.rules = make(map[string]*NATRule)
+	p.rules = make(map[string][]*NATRule)
 }
 
 func (p *IpTablesProcessor) syncState() {
