@@ -66,7 +66,7 @@ func getPublicIPAddress(version uint8) (*net.IPAddr, error) {
 	}
 
 	f := ipfilter.New(ipfilter.Options{
-		BlockedIPs:     getInternalNetworks(*internalNetwork),
+		BlockedIPs:     getFilteredNetworks(*excludeNetworks, *includeNetworks),
 		BlockByDefault: false,
 	})
 
@@ -97,7 +97,9 @@ func getPublicIPAddress(version uint8) (*net.IPAddr, error) {
 	return nil, nil
 }
 
-func getInternalNetworks(exclude string) []string {
+func getFilteredNetworks(exclude, include string) []string {
+	excludeFromFiltered := strings.Split(exclude, ",")
+	includeInFiltered := strings.Split(include, ",")
 	internalNetworks := []string{
 		// loopback
 		"127.0.0.0/8",
@@ -115,9 +117,14 @@ func getInternalNetworks(exclude string) []string {
 	}
 	var result []string
 	for _, n := range internalNetworks {
-		if n != exclude {
-			result = append(result, n)
+		for _, m := range excludeFromFiltered {
+			if n != m {
+				result = append(result, n)
+			}
 		}
+	}
+	for _, o := range includeInFiltered {
+		result = append(result, o)
 	}
 	return result
 }

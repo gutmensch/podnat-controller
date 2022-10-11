@@ -9,7 +9,8 @@ var (
 	dryRun          *bool
 	restrictedPorts *string
 	firewallFlavor  *string
-	internalNetwork *string
+	excludeNetworks *string
+	includeNetworks *string
 	resourcePrefix  *string
 	stateFlavor     *string
 	stateURI        *string
@@ -23,7 +24,8 @@ func init() {
 	dryRun = flag.Bool("dryrun", false, "execute iptables commands or print only")
 	restrictedPorts = flag.String("restrictedports", "22,53,6443", "restricted ports refused for NAT rule")
 	firewallFlavor = flag.String("firewallflavor", "iptables", "firewall implementation to use for NAT setup")
-	internalNetwork = flag.String("internalnetwork", "", "for hosts or tests without public IP allow an internal network")
+	includeNetworks = flag.String("includenetworks", "", "include networks for auto detection (e.g. internal RFC1918 ones)")
+	excludeNetworks = flag.String("excludenetworks", "", "exclude networks for auto detection")
 	resourcePrefix = flag.String("resourceprefix", "podnat", "resource prefix used for firewall chains and comments")
 	stateFlavor = flag.String("stateflavor", "webdav", "which state storage to use, e.g. webdav")
 	stateURI = flag.String("stateuri", "http://podnat-state-store:80", "uri for state store")
