@@ -14,26 +14,37 @@ The JSON format expects a list (holding port objects) called 'entries' in the to
 |dstPort| 1-65535 | yes | |destination port for NAT entry|
 |proto| tcp/udp|no|tcp|layer 3 protocol for NAT entry|
 
-### Pod annotation example for a mail server
+### Pod annotation example for a mail server (auto detect public node IP)
 ```
-bln.space/podnat: '{"entries":[{"srcPort":25,"dstPort":25},{"ifaceAuto":false,"srcIP":"192.168.2.94","srcPort":587,"dstPort":587}]}'
+bln.space/podnat: '{"entries":[{"srcPort":25,"dstPort":25},{"srcPort":143,"dstPort":143},{"srcPort":587,"dstPort":587}]}'
 ```
 
-### Pod annotation example for some rogue UDP service
+### Pod annotation example for a mail server (manual IP setting)
 ```
-bln.space/podnat: '{"entries":[{"srcPort":8888,"dstPort":8888,"proto":"udp"}]}
+bln.space/podnat: '{"entries":[{"ifaceAuto":false,"srcIP":"192.168.2.94","srcPort":25,"dstPort":25},{"ifaceAuto":false,"srcIP":"192.168.2.94","srcPort":143,"dstPort":143},{"ifaceAuto":false,"srcIP":"192.168.2.94","srcPort":587,"dstPort":587}]}'
 ```
 
 ## Controller flags
-|flag|type|required|default|description|
-|---|---|---|---|---|
-|-logtostderr| bool (w/o param) |no| false | glog sending logs to stderr|
-|-dryrun| bool (w/o param) |no| false | just printing changes to firewall |
-|-annotationkey| string |yes| bln.space/podnat |annotation key to watch for in pods (format as above)|
-|-informerresync| 0 | no | |for high traffic updates vs. k8s informer|
-|-restrictedportsenable| bool (w/o param) |no|false|allow NAT entries for ports like 22 and 6443|
-|-httpport| int |no|8484|http port for pod nat controller daemon set deployment|
-|-firewallflavor| string |no|iptables|implementation for firewall NAT automation|
+The following flags can be adjusted with the `extraArgs` setting in the chart.
+|flag|type|required|default|example|description|
+|---|---|---|---|---|---|
+|-dryrun| bool|no| false | -dryrun | just print changes to firewall |
+|-annotationkey| string | no | bln.space/podnat | -annotationkey=example.com/nat |annotation for pods|
+|-informerresync| int | no | 180 | -informerresync=600 |interval of automatic pod informer refresh|
+|-restrictedports| string |no| 22,53,6443 | -restrictedports=22,6443 | configure NAT excluded ports|
+|-httpport| int |no|8484|-httpport=8585 | http port for pod nat controller daemon set|
+|-firewallflavor| string |no|iptables| -firewallflavor=other |firewall NAT implementation<sup>1</sup>|
+|-inclfilternet| string |no| | -inclfilternet=1.3.5.7/32 | ignore during auto detection|
+|-exclfilternet| string |no| | -exclfilternet=192.168.1.0/24 | allow address from net<sup>2</sup>|
+|-resourceprefix| string |no|podnat| -resourceprefix=iloveipt |prefix for chains in iptables|
+|-stateflavor| string |no| webdav| -stateflavor=other |use different state impl<sup>3</sup>|
+|-stateuri| string |no| http://podnat-state-store:80 | -stateuri=http://othersvc:80 |state URI endpoint|
+
+<sup>1</sup>Currently only iptables v4 available
+
+<sup>2</sup>By default RFC1918 internal networks are not considered during auto detection
+
+<sup>3</sup>Currently only webdav state side deployment available
 
 ## Local testing
 
@@ -42,9 +53,27 @@ Dry-run will print firewall changes only. The controller filters for its own kub
 ```
 export KUBECONFIG=$HOME/.kube/config
 go build
-HOSTNAME=<kubernetes_node_name> ./podnat-controller -stateuri http://localhost:8080 -internalnetwork 192.168.0.0/16 -logtostderr -dryrun
+HOSTNAME=<kubernetes_node_name> ./podnat-controller -stateuri=http://localhost:8080 -excludefilternetworks=192.168.0.0/16 -logtostderr -dryrun
+```
+
+## Installation
+```
+helm upgrade \
+  -n podnat-controller-system \
+  --install \
+  --repo https://remembrance.github.io/podnat-controller \
+  --debug \
+  --set-json='extraArgs=["-dryrun"]'
+  podnat-controller \
+  podnat-controller
 ```
 
 ## Limitations
 
-The software is stupid and cannot fix double assigned NAT ports! Use annotations carefully and use at your own risk. ;-)
+* last created pod with same assignment wins
+
+* only iptables v4 support
+
+* only webdav state store support (comes automatically as dependency chart)
+
+* iptables logic "use at your own risk" - it might break your ssh access, if you allow port 22 and deploy a NAT rule, you have been warned :-)
