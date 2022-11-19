@@ -6,7 +6,8 @@ image:
   # Overrides the image tag whose default is the chart appVersion.
   tag: ""
 
-extraArgs: []
+# 0=INFO, 1=WARN, 2=ERROR, 3=FATAL
+extraArgs: ["-minloglevel=1"]
 
 imagePullSecrets: []
 nameOverride: ""
