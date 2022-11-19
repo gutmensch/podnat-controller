@@ -101,7 +101,7 @@ func NewPodInformer(subscriber []string, resync int, events chan<- *PodInfo) *Po
 			if slices.Contains(subscriber, "add") && filterForAnnotationAndPlacement("add", obj) {
 				pod := generatePodInfo("add", obj)
 				if pod != nil {
-					glog.Infof("new pod added, matched filters: %s \n", pod.Name)
+					glog.Warningf("new pod added, matched filters: %s \n", pod.Name)
 					events <- pod
 				}
 			}
@@ -110,7 +110,7 @@ func NewPodInformer(subscriber []string, resync int, events chan<- *PodInfo) *Po
 			if slices.Contains(subscriber, "delete") && filterForAnnotationAndPlacement("delete", obj) {
 				pod := generatePodInfo("delete", obj)
 				if pod != nil {
-					glog.Infof("pod deleted, matched filters: %s \n", pod.Name)
+					glog.Warningf("pod deleted, matched filters: %s \n", pod.Name)
 					events <- pod
 				}
 			}
@@ -119,7 +119,7 @@ func NewPodInformer(subscriber []string, resync int, events chan<- *PodInfo) *Po
 			if slices.Contains(subscriber, "update") && filterForAnnotationAndPlacement("update", newObj) {
 				pod := generatePodInfo("update", newObj)
 				if pod != nil {
-					glog.Infof("pod updated, matched filters: %s \n", pod.Name)
+					glog.Warningf("pod updated, matched filters: %s \n", pod.Name)
 					events <- pod
 				}
 			}

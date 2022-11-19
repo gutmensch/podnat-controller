@@ -50,7 +50,7 @@ NATRULES:
 
 		// case 1 - new entry
 		if _, ok := p.rules[key]; !ok {
-			glog.Infof("creating new NAT rule for %s => %s:%d\n", key, event.IPv4, entry.DestinationPort)
+			glog.Warningf("creating new NAT rule for %s => %s:%d\n", key, event.IPv4, entry.DestinationPort)
 			p.rules[key] = append(p.rules[key], &NATRule{
 				SourceIP:        effSourceIP,
 				DestinationIP:   event.IPv4,
@@ -69,7 +69,7 @@ NATRULES:
 			if pod.DestinationIP.String() == event.IPv4.String() && pod.DestinationPort == entry.DestinationPort {
 				switch event.Event {
 				case "delete":
-					glog.Infof(
+					glog.Warningf(
 						"marking pod NAT rule for deletion %s => %s:%d (%s)\n",
 						key,
 						event.IPv4,
@@ -175,7 +175,7 @@ func (p *IpTablesProcessor) ensureJumpToChain(chain IpTablesChain) error {
 	}
 
 	if ruleExists {
-		glog.Infof("jump to chain %s in chain %s in table %s already exists\n", chain.Name, chain.JumpFrom, chain.Table)
+		glog.Warningf("jump to chain %s in chain %s in table %s already exists\n", chain.Name, chain.JumpFrom, chain.Table)
 		return nil
 	}
 
@@ -210,7 +210,7 @@ func (p *IpTablesProcessor) ensureDefaults(chain IpTablesChain) error {
 			}
 		}
 	default:
-		glog.Infof("no defaults for chain %s defined, skipping\n", chain.Name)
+		glog.Warningf("no defaults for chain %s defined, skipping\n", chain.Name)
 	}
 
 	return nil
@@ -241,8 +241,6 @@ func (p *IpTablesProcessor) getRule(chain IpTablesChain, rule *NATRule) []string
 
 func (p *IpTablesProcessor) reconcileRules() error {
 	for k, ruleList := range p.rules {
-		glog.Infof("ruleList: %s => %v\n", k, ruleList)
-
 		// get last rule
 		var _lastRuleTimestamp time.Time
 		for _, rule := range ruleList {
@@ -254,7 +252,6 @@ func (p *IpTablesProcessor) reconcileRules() error {
 				}
 			}
 		}
-		glog.Infof("_lastRuleTimestamp: %v\n", _lastRuleTimestamp)
 
 		for i, rule := range ruleList {
 			// remove stale rule entries
@@ -262,12 +259,12 @@ func (p *IpTablesProcessor) reconcileRules() error {
 				for _, chain := range p.chains {
 					glog.Infof("[chain:%s] deleting rule %v: %v\n", chain.Name, rule, p.getRule(chain, rule))
 					if *dryRun {
-						glog.Infof("dry-run activated, not applying rule: %v\n", rule)
+						glog.Infof("dry-run activated, not deleting rule: %v\n", rule)
 						continue
 					}
 					err := p.ipt.DeleteIfExists(chain.Table, chain.Name, p.getRule(chain, rule)...)
 					if err != nil {
-						glog.Warningf("failed deleting rule %v: %v\n", rule, err)
+						glog.Warningf("failed deleting stale rule %v: %v\n", rule, err)
 					}
 				}
 				p.rules[k] = remove(p.rules[k], i)
@@ -281,15 +278,13 @@ func (p *IpTablesProcessor) reconcileRules() error {
 			continue
 		}
 
-		glog.Infof("rules left: %v\n", p.rules[k])
-
 		rule := p.rules[k][0]
 		if len(p.rules[k]) > 1 {
 			glog.Warningf("unexpected conflicting entries, choosing first in list: %v\n", rule)
 		}
 		for _, chain := range p.chains {
 			if *dryRun {
-				glog.Infof("dry-run activated, not applying rule: %v in chain %s\n", rule, chain.Name)
+				glog.Warningf("dry-run activated, not applying rule: %v in chain %s\n", rule, chain.Name)
 				continue
 			}
 			err := p.ipt.AppendUnique(chain.Table, chain.Name, p.getRule(chain, rule)...)
