@@ -51,7 +51,15 @@ spec:
       {{- with .Values.tolerations }}
       tolerations:
         {{- toYaml . | nindent 8 }}
+      {{- if .Values.storage.host }}
+      volumes:
+      - name: state
+        hostPath:
+          path: {{ .Values.storage.path }}
+          type: Directory
       {{- end }}
+      {{- end }}
+  {{- if .Values.storage.pvc }}
   volumeClaimTemplates:
   - metadata:
       name: state
@@ -63,3 +71,4 @@ spec:
       resources:
         requests:
           storage: "{{ .Values.storage.size }}"
+  {{- end }}

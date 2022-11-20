@@ -29,5 +29,8 @@ tolerations: []
 affinity: {}
 
 storage:
+  pvc: false
+  host: true
+  path: /var/podnat-state
   class: ""
   size: "1G"
