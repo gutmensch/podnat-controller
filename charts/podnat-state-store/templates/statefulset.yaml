@@ -51,13 +51,13 @@ spec:
       {{- with .Values.tolerations }}
       tolerations:
         {{- toYaml . | nindent 8 }}
+      {{- end }}
       {{- if .Values.storage.host }}
       volumes:
       - name: state
         hostPath:
           path: {{ .Values.storage.path }}
           type: Directory
-      {{- end }}
       {{- end }}
   {{- if .Values.storage.pvc }}
   volumeClaimTemplates:
