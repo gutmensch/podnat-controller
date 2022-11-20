@@ -255,6 +255,16 @@ entries:
   podnat-state-store:
   - apiVersion: v2
     appVersion: 1.23.1
+    created: "2022-11-20T21:38:31.729764697Z"
+    description: A Helm chart simple webdav on pvc storage
+    digest: bf78468756ca0f4ddf7c5180cd3a1e5157d56180ed25d5fa32ccbe6dc714959c
+    name: podnat-state-store
+    type: application
+    urls:
+    - https://github.com/remembrance/podnat-controller/releases/download/podnat-state-store-0.3.2/podnat-state-store-0.3.2.tgz
+    version: 0.3.2
+  - apiVersion: v2
+    appVersion: 1.23.1
     created: "2022-11-20T21:31:19.091929499Z"
     description: A Helm chart simple webdav on pvc storage
     digest: 9d0492fc224527bca567b46110515f5550e916b09fdd338058933eec40b98215
@@ -303,4 +313,4 @@ entries:
     urls:
     - https://github.com/remembrance/podnat-controller/releases/download/podnat-state-store-0.1.0/podnat-state-store-0.1.0.tgz
     version: 0.1.0
-generated: "2022-11-20T21:31:19.091975701Z"
+generated: "2022-11-20T21:38:31.729816597Z"
