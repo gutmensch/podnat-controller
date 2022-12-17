@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/golang/glog"
 	"github.com/studio-b12/gowebdav"
+	"k8s.io/klog/v2"
 )
 
 type WebDAVState struct {
@@ -44,7 +44,7 @@ func (s *WebDAVState) Get() ([]byte, error) {
 
 func (s *WebDAVState) init() error {
 	if err := s.Client.Mkdir(s.Directory, 0644); err != nil {
-		glog.Errorf("could not init state directory: %v\n", err)
+		klog.Errorf("could not init state directory: %v\n", err)
 		// EREMOTEIO
 		os.Exit(121)
 	}

@@ -5,8 +5,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/golang/glog"
 	"golang.org/x/exp/slices"
+	"k8s.io/klog/v2"
 
 	corev1 "k8s.io/api/core/v1"
 
@@ -37,7 +37,7 @@ func generatePodInfo(event string, data interface{}) *PodInfo {
 	podNamespace := pod.ObjectMeta.Namespace
 	podAnnotation, err := parseAnnotation(pod.ObjectMeta.Annotations[*annotationKey])
 	if err != nil {
-		glog.Warningf("ignoring pod %s with invalid annotation, error: '%v'\n", podName, err)
+		klog.Warningf("ignoring pod %s with invalid annotation, error: '%v'\n", podName, err)
 		return nil
 	}
 
@@ -84,12 +84,12 @@ func NewPodInformer(subscriber []string, resync int, events chan<- *PodInfo) *Po
 	kubeconfig := getEnv("KUBECONFIG", "")
 	config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
 	if err != nil {
-		glog.Errorln(err)
+		klog.Errorln(err)
 		os.Exit(1)
 	}
 	clientset, err := kubernetes.NewForConfig(config)
 	if err != nil {
-		glog.Errorln(err)
+		klog.Errorln(err)
 		os.Exit(1)
 	}
 
@@ -101,7 +101,7 @@ func NewPodInformer(subscriber []string, resync int, events chan<- *PodInfo) *Po
 			if slices.Contains(subscriber, "add") && filterForAnnotationAndPlacement("add", obj) {
 				pod := generatePodInfo("add", obj)
 				if pod != nil {
-					glog.Warningf("new pod added, matched filters: %s \n", pod.Name)
+					klog.Warningf("new pod added, matched filters: %s \n", pod.Name)
 					events <- pod
 				}
 			}
@@ -110,7 +110,7 @@ func NewPodInformer(subscriber []string, resync int, events chan<- *PodInfo) *Po
 			if slices.Contains(subscriber, "delete") && filterForAnnotationAndPlacement("delete", obj) {
 				pod := generatePodInfo("delete", obj)
 				if pod != nil {
-					glog.Warningf("pod deleted, matched filters: %s \n", pod.Name)
+					klog.Warningf("pod deleted, matched filters: %s \n", pod.Name)
 					events <- pod
 				}
 			}
@@ -119,7 +119,7 @@ func NewPodInformer(subscriber []string, resync int, events chan<- *PodInfo) *Po
 			if slices.Contains(subscriber, "update") && filterForAnnotationAndPlacement("update", newObj) {
 				pod := generatePodInfo("update", newObj)
 				if pod != nil {
-					glog.Warningf("pod updated, matched filters: %s \n", pod.Name)
+					klog.Warningf("pod updated, matched filters: %s \n", pod.Name)
 					events <- pod
 				}
 			}

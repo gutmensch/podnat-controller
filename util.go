@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/golang/glog"
+	"k8s.io/klog/v2"
 
 	"github.com/jpillora/ipfilter"
 )
@@ -28,6 +28,19 @@ func parseIP(ip string) *net.IPAddr {
 		return nil
 	}
 	return _ip
+}
+
+func parseJumpPos(s string, i uint8) int16 {
+	_t := strings.Split(s, ":")
+	if len(_t) == 3 {
+		val, err := strconv.ParseInt(_t[i], 10, 32)
+		if err != nil {
+			goto def
+		}
+		return int16(val)
+	}
+def:
+	return 1
 }
 
 func ptr[T any](t T) *T {
@@ -61,7 +74,7 @@ func filterIPs(collection []net.Addr, fn func(elem net.Addr) bool) []net.Addr {
 func getPublicIPAddress(version uint8) (*net.IPAddr, error) {
 	list, err := net.InterfaceAddrs()
 	if err != nil {
-		glog.Errorf("%v\n", err)
+		klog.Errorf("%v\n", err)
 		return nil, errors.New("could not read interface IP addresses")
 	}
 

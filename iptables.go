@@ -8,20 +8,22 @@ import (
 	"strings"
 	"time"
 
-	"github.com/golang/glog"
 	"golang.org/x/exp/slices"
+	"k8s.io/klog/v2"
 
 	"github.com/coreos/go-iptables/iptables"
 )
 
 type IpTablesProcessor struct {
-	ipt                   *iptables.IPTables
-	chains                []IpTablesChain
-	rules                 map[string][]*NATRule
-	publicNodeIP          *net.IPAddr
-	ruleStalenessDuration time.Duration
-	internalNetworks      []string
-	state                 StateStore
+	ipt                      *iptables.IPTables
+	chains                   []IpTablesChain
+	rules                    map[string][]*NATRule
+	publicNodeIP             *net.IPAddr
+	jumpChainRefreshDuration time.Duration
+	jumpChainPosition        map[string]int16
+	ruleStalenessDuration    time.Duration
+	internalNetworks         []string
+	state                    StateStore
 }
 
 func (p *IpTablesProcessor) Apply(event *PodInfo) error {
@@ -42,7 +44,7 @@ NATRULES:
 		}
 
 		if effSourceIP == nil {
-			glog.Warningf("could not detect source IP from annotation entry or from node, skipping entry %v\n", entry)
+			klog.Warningf("could not detect source IP from annotation entry or from node, skipping entry %v\n", entry)
 			continue
 		}
 
@@ -50,7 +52,7 @@ NATRULES:
 
 		// case 1 - new entry
 		if _, ok := p.rules[key]; !ok {
-			glog.Warningf("creating new NAT rule for %s => %s:%d\n", key, event.IPv4, entry.DestinationPort)
+			klog.Warningf("creating new NAT rule for %s => %s:%d\n", key, event.IPv4, entry.DestinationPort)
 			p.rules[key] = append(p.rules[key], &NATRule{
 				SourceIP:        effSourceIP,
 				DestinationIP:   event.IPv4,
@@ -69,7 +71,7 @@ NATRULES:
 			if pod.DestinationIP.String() == event.IPv4.String() && pod.DestinationPort == entry.DestinationPort {
 				switch event.Event {
 				case "delete":
-					glog.Warningf(
+					klog.Warningf(
 						"marking pod NAT rule for deletion %s => %s:%d (%s)\n",
 						key,
 						event.IPv4,
@@ -78,7 +80,7 @@ NATRULES:
 					)
 					p.rules[key][i].LastVerified = time.Now().Add(-p.ruleStalenessDuration)
 				case "update":
-					glog.Infof("refreshing pod NAT rule %s => %s:%d (%s)\n", key, event.IPv4, entry.DestinationPort, event.Name)
+					klog.Infof("refreshing pod NAT rule %s => %s:%d (%s)\n", key, event.IPv4, entry.DestinationPort, event.Name)
 					p.rules[key][i].LastVerified = time.Now()
 				}
 				continue NATRULES
@@ -92,7 +94,7 @@ NATRULES:
 		}
 
 		// case 4
-		glog.Infof("appending replacement NAT rule for %s => %s:%d (%s)\n", key, event.IPv4, entry.DestinationPort, event.Name)
+		klog.Infof("appending replacement NAT rule for %s => %s:%d (%s)\n", key, event.IPv4, entry.DestinationPort, event.Name)
 		p.rules[key] = append(p.rules[key], &NATRule{
 			SourceIP:        effSourceIP,
 			DestinationIP:   event.IPv4,
@@ -108,7 +110,7 @@ NATRULES:
 	p.syncState()
 
 	if err := p.reconcileRules(); err != nil {
-		glog.Errorf("reconciling rules failed with error: %v\n", err)
+		klog.Errorf("reconciling rules failed with error: %v\n", err)
 		return err
 	}
 
@@ -118,7 +120,7 @@ NATRULES:
 func (p *IpTablesProcessor) ensureChain(chain IpTablesChain) error {
 	existingChains, err := p.ipt.ListChains(chain.Table)
 	if err != nil {
-		glog.Errorf("listing chains of table %s failed: %v\n", chain.Table, err)
+		klog.Errorf("listing chains of table %s failed: %v\n", chain.Table, err)
 		return err
 	}
 	if slices.Contains(existingChains, chain.Name) {
@@ -126,7 +128,7 @@ func (p *IpTablesProcessor) ensureChain(chain IpTablesChain) error {
 	}
 	err = p.ipt.NewChain(chain.Table, chain.Name)
 	if err != nil {
-		glog.Errorf("creating chain %s in table %s failed: %v\n", chain.Name, chain.Table, err)
+		klog.Errorf("creating chain %s in table %s failed: %v\n", chain.Name, chain.Table, err)
 		return err
 	}
 	return nil
@@ -137,9 +139,10 @@ func (p *IpTablesProcessor) computeRulePosition(chain IpTablesChain) int {
 
 	listRules, err := p.ipt.List(chain.Table, chain.JumpFrom)
 	if err != nil {
-		glog.Errorf("failed listing jumpfrom chain '%s' in table '%s': %v\n", chain.JumpFrom, chain.Table, err)
+		klog.Errorf("failed listing jumpfrom chain '%s' in table '%s': %v\n", chain.JumpFrom, chain.Table, err)
 		return defaultPosition
 	}
+
 	// policy is first entry in rules list, real rules start with 1
 	entryCount := int16(len(listRules)) - 1
 
@@ -167,23 +170,61 @@ func (p *IpTablesProcessor) ensureJumpToChain(chain IpTablesChain) error {
 	ruleSpec := []string{
 		"-m", "comment", "--comment", fmt.Sprintf("%s[jump_to_chain]", *resourcePrefix), "-j", chain.Name,
 	}
+	ruleSpecCmp := []string{
+		"-A", chain.JumpFrom, "-m", "comment", "--comment", fmt.Sprintf("\"%s[jump_to_chain]\"", *resourcePrefix), "-j", chain.Name,
+	}
+	rulePosition := p.computeRulePosition(chain)
 
-	ruleExists, err := p.ipt.Exists(chain.Table, chain.JumpFrom, ruleSpec...)
-	if err != nil {
-		glog.Errorf("checking for existing rule %v in table %s failed: %v\n", ruleSpec, chain.Table, err)
-		return err
+	// algorithm
+	// 1. list all rules in ipt default chain (jumpfrom)
+	// 2. if rule is not in list, insert at computed position and return
+	// 3. if rule is in list, check slice index with computed position
+	// 3a. if positions match return
+	// 3b. if positions don't match: delete old rule, insert with position
+
+	var err error
+	rules, _ := p.ipt.List(chain.Table, chain.JumpFrom)
+	ruleInList := false
+	ruleInListPosition := -1
+	for i, r := range rules {
+		if r == strings.Join(ruleSpecCmp, " ") {
+			ruleInList = true
+			ruleInListPosition = i
+			break
+		}
 	}
 
-	if ruleExists {
-		glog.Warningf("jump to chain %s in chain %s in table %s already exists\n", chain.Name, chain.JumpFrom, chain.Table)
+	// 2
+	if !ruleInList {
+		goto CREATE
+	}
+
+	// 3a
+	if ruleInList && ruleInListPosition == rulePosition {
 		return nil
 	}
 
-	err = p.ipt.Insert(chain.Table, chain.JumpFrom, p.computeRulePosition(chain), ruleSpec...)
+	// 3b
+	err = p.ipt.Delete(chain.Table, chain.JumpFrom, ruleSpec...)
 	if err != nil {
-		glog.Errorf("adding jump rule %v in table %s failed: %v\n", ruleSpec, chain.Table, err)
+		klog.Errorf(
+			"deleting existing rule %v in table %s at wrong position %d failed: %v\n",
+			ruleSpec,
+			chain.Table,
+			ruleInListPosition,
+			err,
+		)
 		return err
 	}
+
+CREATE:
+	klog.Infof("adding jump rule %v in table %s: %v\n", ruleSpec, chain.Table)
+	err = p.ipt.Insert(chain.Table, chain.JumpFrom, rulePosition, ruleSpec...)
+	if err != nil {
+		klog.Errorf("adding jump rule %v in table %s failed: %v\n", ruleSpec, chain.Table, err)
+		return err
+	}
+
 	return nil
 }
 
@@ -197,7 +238,7 @@ func (p *IpTablesProcessor) ensureDefaults(chain IpTablesChain) error {
 			}
 			ruleExists, err := p.ipt.Exists(chain.Table, chain.Name, ruleSpec...)
 			if err != nil {
-				glog.Errorf("checking for existing rule %v in table %s failed: %v\n", ruleSpec, chain.Table, err)
+				klog.Errorf("checking for existing rule %v in table %s failed: %v\n", ruleSpec, chain.Table, err)
 				return err
 			}
 			if ruleExists {
@@ -205,12 +246,12 @@ func (p *IpTablesProcessor) ensureDefaults(chain IpTablesChain) error {
 			}
 			err = p.ipt.Insert(chain.Table, chain.Name, i+1, ruleSpec...)
 			if err != nil {
-				glog.Errorf("adding rule %v in table %s failed: %v\n", ruleSpec, chain.Table, err)
+				klog.Errorf("adding rule %v in table %s failed: %v\n", ruleSpec, chain.Table, err)
 				return err
 			}
 		}
 	default:
-		glog.Warningf("no defaults for chain %s defined, skipping\n", chain.Name)
+		klog.Warningf("no defaults for chain %s defined, skipping\n", chain.Name)
 	}
 
 	return nil
@@ -257,14 +298,14 @@ func (p *IpTablesProcessor) reconcileRules() error {
 			// remove stale rule entries
 			if time.Now().Sub(rule.LastVerified) >= p.ruleStalenessDuration || rule.Created.Before(_lastRuleTimestamp) {
 				for _, chain := range p.chains {
-					glog.Infof("[chain:%s] deleting rule %v: %v\n", chain.Name, rule, p.getRule(chain, rule))
+					klog.Infof("[chain:%s] deleting rule %v: %v\n", chain.Name, rule, p.getRule(chain, rule))
 					if *dryRun {
-						glog.Infof("dry-run activated, not deleting rule: %v\n", rule)
+						klog.Infof("dry-run activated, not deleting rule: %v\n", rule)
 						continue
 					}
 					err := p.ipt.DeleteIfExists(chain.Table, chain.Name, p.getRule(chain, rule)...)
 					if err != nil {
-						glog.Warningf("failed deleting stale rule %v: %v\n", rule, err)
+						klog.Warningf("failed deleting stale rule %v: %v\n", rule, err)
 					}
 				}
 				p.rules[k] = remove(p.rules[k], i)
@@ -273,18 +314,18 @@ func (p *IpTablesProcessor) reconcileRules() error {
 
 		// empty NAT mapping - delete
 		if len(p.rules[k]) == 0 {
-			glog.Infof("empty NAT mapping, removing: %v\n", p.rules[k])
+			klog.Infof("empty NAT mapping, removing: %v\n", p.rules[k])
 			delete(p.rules, k)
 			continue
 		}
 
 		rule := p.rules[k][0]
 		if len(p.rules[k]) > 1 {
-			glog.Warningf("unexpected conflicting entries, choosing first in list: %v\n", rule)
+			klog.Warningf("unexpected conflicting entries, choosing first in list: %v\n", rule)
 		}
 		for _, chain := range p.chains {
 			if *dryRun {
-				glog.Warningf("dry-run activated, not applying rule: %v in chain %s\n", rule, chain.Name)
+				klog.Warningf("dry-run activated, not applying rule: %v in chain %s\n", rule, chain.Name)
 				continue
 			}
 			err := p.ipt.AppendUnique(chain.Table, chain.Name, p.getRule(chain, rule)...)
@@ -304,12 +345,12 @@ func (p *IpTablesProcessor) reconcileRules() error {
 func (p *IpTablesProcessor) fetchState() {
 	bytes, err := p.state.Get()
 	if err != nil {
-		glog.Warningf("could not read remote state: %v\n", err)
+		klog.Warningf("could not read remote state: %v\n", err)
 		goto _default
 	}
 	err = json.Unmarshal(bytes, &p.rules)
 	if err != nil {
-		glog.Warningf("state format malformed: %v\n%v\n", string(bytes), err)
+		klog.Warningf("state format malformed: %v\n%v\n", string(bytes), err)
 		goto _default
 	}
 	return
@@ -323,15 +364,24 @@ func (p *IpTablesProcessor) syncState() {
 	// need to write the state basically every time
 	err := p.state.Put(p.rules)
 	if err != nil {
-		glog.Warningf("could not sync to remote state: %v\n", err)
+		klog.Warningf("could not sync to remote state: %v\n", err)
 	}
+}
+
+func (p *IpTablesProcessor) chainJumpPos(defaultChain string) {
 }
 
 func (p *IpTablesProcessor) init() error {
 	p.fetchState()
 	p.publicNodeIP, _ = getPublicIPAddress(4)
 	p.ruleStalenessDuration, _ = time.ParseDuration("600s")
+	p.jumpChainRefreshDuration, _ = time.ParseDuration("300s")
 	p.internalNetworks = []string{"172.16.0.0/12", "192.168.0.0/16", "10.0.0.0/8", "127.0.0.0/8"}
+	p.jumpChainPosition = map[string]int16{
+		"FORWARD":     parseJumpPos(*iptablesJump, 0),
+		"PREROUTING":  parseJumpPos(*iptablesJump, 1),
+		"POSTROUTING": parseJumpPos(*iptablesJump, 2),
+	}
 
 	// positive number = actual position in chain, if not enough rules, then use last position
 	// negative number = go back from end of current list and insert there, or use last position if not enough rules
@@ -340,42 +390,31 @@ func (p *IpTablesProcessor) init() error {
 			Name:        strings.ToUpper(fmt.Sprintf("%s_FORWARD", *resourcePrefix)),
 			Table:       "filter",
 			JumpFrom:    "FORWARD",
-			JumpFromPos: -2,
+			JumpFromPos: p.jumpChainPosition["FORWARD"],
 		},
 		{
 			Name:        strings.ToUpper(fmt.Sprintf("%s_PRE", *resourcePrefix)),
 			Table:       "nat",
 			JumpFrom:    "PREROUTING",
-			JumpFromPos: -2,
+			JumpFromPos: p.jumpChainPosition["PREROUTING"],
 		},
 		{
 			Name:        strings.ToUpper(fmt.Sprintf("%s_POST", *resourcePrefix)),
 			Table:       "nat",
 			JumpFrom:    "POSTROUTING",
-			JumpFromPos: -2,
+			JumpFromPos: p.jumpChainPosition["POSTROUTING"],
 		},
 	}
 
 	for _, chain := range p.chains {
 		if *dryRun {
-			glog.Infof("dryRun mode enabled, not initializing iptables chain %s in table %s\n", chain.Name, chain.Table)
+			klog.Infof("dryRun mode enabled, not initializing iptables chain %s in table %s\n", chain.Name, chain.Table)
 			continue
 		}
 
 		if err := p.ensureChain(chain); err != nil {
 			return errors.New(
 				fmt.Sprintf("initializing iptables chain %s in table %s failed with error %v\n", chain.Name, chain.Table, err),
-			)
-		}
-
-		if err := p.ensureJumpToChain(chain); err != nil {
-			return errors.New(
-				fmt.Sprintf(
-					"setup jumping into iptables chain %s in table %s failed with error %v\n",
-					chain.Name,
-					chain.Table,
-					err,
-				),
 			)
 		}
 
@@ -390,6 +429,21 @@ func (p *IpTablesProcessor) init() error {
 			)
 		}
 
+		// XXX: the default chains are impacted by other ipt related software like cilium
+		//      run periodically to make sure rule position is always correct
+		//      otherwise we might lose source NAT mapping
+		go func(chain IpTablesChain) {
+			for {
+				if err := p.ensureJumpToChain(chain); err != nil {
+					klog.Warningf("setup jumping into iptables chain %s in table %s failed with error %v\n",
+						chain.Name,
+						chain.Table,
+						err,
+					)
+				}
+				time.Sleep(p.jumpChainRefreshDuration)
+			}
+		}(chain)
 	}
 
 	return nil
@@ -399,7 +453,7 @@ func (p *IpTablesProcessor) init() error {
 func NewIpTablesProcessor(remoteState StateStore) *IpTablesProcessor {
 	ipt, err := iptables.New()
 	if err != nil {
-		glog.Errorf("initializing of iptables failed: %v\n", err)
+		klog.Errorf("initializing of iptables failed: %v\n", err)
 	}
 
 	proc := &IpTablesProcessor{
@@ -408,7 +462,7 @@ func NewIpTablesProcessor(remoteState StateStore) *IpTablesProcessor {
 	}
 
 	if err = proc.init(); err != nil {
-		glog.Errorf("iptables basic setup failed: %v\n", err)
+		klog.Errorf("iptables basic setup failed: %v\n", err)
 	}
 
 	return proc

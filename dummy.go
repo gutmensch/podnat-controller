@@ -5,17 +5,17 @@
 
 package main
 
-import "github.com/golang/glog"
+import "k8s.io/klog/v2"
 
 type DummyProcessor struct{}
 
 func NewDummyProcessor() *DummyProcessor {
-	glog.Warningf("firewall flavor '%s' not implemented, please use a supported firewall", *firewallFlavor)
+	klog.Warningf("firewall flavor '%s' not implemented, please use a supported firewall", *firewallFlavor)
 	proc := &DummyProcessor{}
 	return proc
 }
 
 func (p *DummyProcessor) Apply(event *PodInfo) error {
-	glog.Warningf("firewall flavor '%s' not implemented, please use a supported firewall", *firewallFlavor)
+	klog.Warningf("firewall flavor '%s' not implemented, please use a supported firewall", *firewallFlavor)
 	return nil
 }

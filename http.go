@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/golang/glog"
+	"k8s.io/klog/v2"
 )
 
 type httpServer struct {
@@ -33,5 +33,5 @@ func NewHTTPServer(port int) *httpServer {
 }
 
 func (s *httpServer) Run() {
-	glog.Fatalln(http.ListenAndServe(fmt.Sprintf(":%d", s.port), s.mux))
+	klog.Fatalln(http.ListenAndServe(fmt.Sprintf(":%d", s.port), s.mux))
 }

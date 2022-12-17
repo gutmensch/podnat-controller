@@ -1,6 +1,10 @@
 package main
 
-import "flag"
+import (
+	"flag"
+
+	"k8s.io/klog/v2"
+)
 
 var (
 	annotationKey         *string
@@ -9,6 +13,7 @@ var (
 	dryRun                *bool
 	restrictedPorts       *string
 	firewallFlavor        *string
+	iptablesJump          *string
 	excludeFilterNetworks *string
 	includeFilterNetworks *string
 	resourcePrefix        *string
@@ -24,6 +29,7 @@ func init() {
 	dryRun = flag.Bool("dryrun", false, "execute iptables commands or print only")
 	restrictedPorts = flag.String("restrictedports", "22,53,6443", "restricted ports refused for NAT rule")
 	firewallFlavor = flag.String("firewallflavor", "iptables", "firewall implementation to use for NAT setup")
+	iptablesJump = flag.String("iptablesjump", "-2:-2:-2", "rule pos for chain jump to podnat (FORWARD:PREROUTING:POSTROUTING)")
 	includeFilterNetworks = flag.String("inclfilternet", "", "disable networks during auto detection")
 	excludeFilterNetworks = flag.String("exclfilternet", "", "enable networks during auto detection (e.g. RFC1918)")
 	resourcePrefix = flag.String("resourceprefix", "podnat", "resource prefix used for firewall chains and comments")
@@ -32,6 +38,7 @@ func init() {
 }
 
 func main() {
+	klog.InitFlags(nil)
 	flag.Parse()
 
 	events := make(chan *PodInfo)
