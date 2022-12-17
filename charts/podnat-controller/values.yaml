@@ -6,7 +6,9 @@ image:
   # Overrides the image tag whose default is the chart appVersion.
   tag: ""
 
-# 0=INFO, 1=WARN, 2=ERROR, 3=FATAL
+# e.g. stderrthreshold=INFO,WARNING,ERROR,FATAL
+# does not work with logtostderr set, see
+# https://github.com/kubernetes/klog/issues/212
 extraArgs: []
 
 imagePullSecrets: []
