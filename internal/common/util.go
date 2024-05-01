@@ -1,4 +1,4 @@
-package main
+package common
 
 import (
 	"errors"
@@ -13,16 +13,12 @@ import (
 )
 
 // http://cavaliercoder.com/blog/optimized-abs-for-int64-in-go.html
-func abs(n int16) int16 {
+func Abs(n int16) int16 {
 	y := n >> 15
 	return (n ^ y) - y
 }
 
-func remove(s []*NATRule, index int) []*NATRule {
-	return append(s[:index], s[index+1:]...)
-}
-
-func parseIP(ip string) *net.IPAddr {
+func ParseIP(ip string) *net.IPAddr {
 	_ip, err := net.ResolveIPAddr("ip", ip)
 	if err != nil {
 		return nil
@@ -30,8 +26,8 @@ func parseIP(ip string) *net.IPAddr {
 	return _ip
 }
 
-func parseJumpPos(s string, i uint8) int16 {
-	_t := strings.Split(s, ":")
+func ParseJumpPos(s string, i uint8) int16 {
+	_t := strings.Split(s, ",")
 	if len(_t) == 3 {
 		val, err := strconv.ParseInt(_t[i], 10, 32)
 		if err != nil {
@@ -43,18 +39,18 @@ def:
 	return 1
 }
 
-func ptr[T any](t T) *T {
+func Ptr[T any](t T) *T {
 	return &t
 }
 
-func getEnv(key, fallback string) string {
+func GetEnv(key, fallback string) string {
 	if value, ok := os.LookupEnv(key); ok {
 		return value
 	}
 	return fallback
 }
 
-func shortHostName(hostname string) string {
+func ShortHostName(hostname string) string {
 	if strings.Contains(hostname, ".") {
 		return strings.Split(hostname, ".")[0]
 	}
@@ -71,7 +67,7 @@ func filterIPs(collection []net.Addr, fn func(elem net.Addr) bool) []net.Addr {
 	return result
 }
 
-func getPublicIPAddress(version uint8) (*net.IPAddr, error) {
+func GetPublicIPAddress(version uint8) (*net.IPAddr, error) {
 	list, err := net.InterfaceAddrs()
 	if err != nil {
 		klog.Errorf("%v\n", err)
@@ -79,7 +75,7 @@ func getPublicIPAddress(version uint8) (*net.IPAddr, error) {
 	}
 
 	f := ipfilter.New(ipfilter.Options{
-		BlockedIPs:     getFilteredNetworks(*excludeFilterNetworks, *includeFilterNetworks),
+		BlockedIPs:     getFilteredNetworks(*ExcludeFilterNetworks, *IncludeFilterNetworks),
 		BlockByDefault: false,
 	})
 
@@ -100,10 +96,10 @@ func getPublicIPAddress(version uint8) (*net.IPAddr, error) {
 			_temp = addr.String()
 		}
 		if version == 4 && strings.Contains(_temp, ".") {
-			return parseIP(_temp), nil
+			return ParseIP(_temp), nil
 		}
 		if version == 6 && strings.Contains(_temp, ":") {
-			return parseIP(_temp), nil
+			return ParseIP(_temp), nil
 		}
 	}
 
@@ -146,7 +142,7 @@ DEFAULTFILTER:
 	return result
 }
 
-func sliceAtoi(sa []string) ([]uint16, error) {
+func SliceAtoi(sa []string) ([]uint16, error) {
 	si := make([]uint16, 0, len(sa))
 	for _, a := range sa {
 		i, err := strconv.Atoi(a)

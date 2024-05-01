@@ -1,6 +1,9 @@
-package main
+package controller
 
 import (
+	"github.com/gutmensch/podnat-controller/internal/api"
+	"github.com/gutmensch/podnat-controller/internal/common"
+	"k8s.io/client-go/rest"
 	"net"
 	"os"
 	"time"
@@ -31,23 +34,23 @@ func (i *PodInformer) Run() {
 	}
 }
 
-func generatePodInfo(event string, data interface{}) *PodInfo {
+func generatePodInfo(event string, data interface{}) *api.PodInfo {
 	pod := data.(*corev1.Pod)
 	podName := pod.ObjectMeta.Name
 	podNamespace := pod.ObjectMeta.Namespace
-	podAnnotation, err := parseAnnotation(pod.ObjectMeta.Annotations[*annotationKey])
+	podAnnotation, err := api.ParseAnnotation(pod.ObjectMeta.Annotations[*common.AnnotationKey])
 	if err != nil {
 		klog.Warningf("ignoring pod %s with invalid annotation, error: '%v'\n", podName, err)
 		return nil
 	}
 
-	info := &PodInfo{
+	info := &api.PodInfo{
 		Event:      event,
 		Name:       podName,
 		Namespace:  podNamespace,
-		Node:       shortHostName(pod.Spec.NodeName),
+		Node:       common.ShortHostName(pod.Spec.NodeName),
 		Annotation: podAnnotation,
-		IPv4:       parseIP(pod.Status.PodIP),
+		IPv4:       common.ParseIP(pod.Status.PodIP),
 	}
 	return info
 }
@@ -61,7 +64,7 @@ func filterForAnnotationAndPlacement(event string, data interface{}) bool {
 	}
 
 	// not running on this node
-	if shortHostName(pod.Spec.NodeName) != getEnv("HOSTNAME", "") {
+	if common.ShortHostName(pod.Spec.NodeName) != *common.NodeID {
 		return false
 	}
 
@@ -73,30 +76,33 @@ func filterForAnnotationAndPlacement(event string, data interface{}) bool {
 	}
 
 	// valid pod and state
-	if _, ok := pod.ObjectMeta.Annotations[*annotationKey]; ok {
+	if _, ok := pod.ObjectMeta.Annotations[*common.AnnotationKey]; ok {
 		return true
 	}
 
 	return false
 }
 
-func NewPodInformer(subscriber []string, resync int, events chan<- *PodInfo) *PodInformer {
-	kubeconfig := getEnv("KUBECONFIG", "")
-	config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
+func NewPodInformer(subscriber []string, events chan<- *api.PodInfo) *PodInformer {
+	kubeConfig := common.GetEnv("KUBECONFIG", "")
+	var config *rest.Config
+	var clientSet *kubernetes.Clientset
+	var err error
+	config, err = clientcmd.BuildConfigFromFlags("", kubeConfig)
 	if err != nil {
 		klog.Errorln(err)
 		os.Exit(1)
 	}
-	clientset, err := kubernetes.NewForConfig(config)
+	clientSet, err = kubernetes.NewForConfig(config)
 	if err != nil {
 		klog.Errorln(err)
 		os.Exit(1)
 	}
 
 	in := &PodInformer{
-		factory: kubeinformers.NewSharedInformerFactory(clientset, time.Duration(resync)*time.Second),
+		factory: kubeinformers.NewSharedInformerFactory(clientSet, time.Duration(*common.InformerResync)*time.Second),
 	}
-	in.factory.Core().V1().Pods().Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, _ = in.factory.Core().V1().Pods().Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			if slices.Contains(subscriber, "add") && filterForAnnotationAndPlacement("add", obj) {
 				pod := generatePodInfo("add", obj)

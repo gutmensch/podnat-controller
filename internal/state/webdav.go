@@ -1,9 +1,10 @@
-package main
+package state
 
 import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/gutmensch/podnat-controller/internal/common"
 	"os"
 	"path/filepath"
 	"sync"
@@ -51,14 +52,14 @@ func (s *WebDAVState) init() error {
 	return nil
 }
 
-func NewWebDavState(URL, user, password string) *WebDAVState {
+func NewWebDavState() *WebDAVState {
 	state := &WebDAVState{
-		Client:    gowebdav.NewClient(URL, user, password),
-		Directory: getEnv("HOSTNAME", "node"),
+		Client:    gowebdav.NewClient("http://podnat-state-store:80", "", ""),
+		Directory: *common.NodeID,
 		File:      "state.json",
 	}
 
-	state.init()
+	_ = state.init()
 
 	return state
 }

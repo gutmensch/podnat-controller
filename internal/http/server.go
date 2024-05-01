@@ -1,7 +1,8 @@
-package main
+package http
 
 import (
 	"fmt"
+	"github.com/gutmensch/podnat-controller/internal/common"
 	"net/http"
 
 	"k8s.io/klog/v2"
@@ -20,9 +21,9 @@ func generateNatEntryList(w http.ResponseWriter, req *http.Request) {
 	fmt.Fprintf(w, "TODO: generate list of all current NAT entries\n")
 }
 
-func NewHTTPServer(port int) *httpServer {
+func NewHTTPServer() *httpServer {
 	server := &httpServer{
-		port: port,
+		port: *common.HTTPPort,
 		mux:  http.NewServeMux(),
 	}
 	server.mux.HandleFunc("/healthz", liveness)

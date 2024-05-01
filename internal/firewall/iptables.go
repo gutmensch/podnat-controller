@@ -1,9 +1,12 @@
-package main
+package firewall
 
 import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/gutmensch/podnat-controller/internal/api"
+	"github.com/gutmensch/podnat-controller/internal/common"
+	"github.com/gutmensch/podnat-controller/internal/state"
 	"net"
 	"strings"
 	"time"
@@ -16,17 +19,17 @@ import (
 
 type IpTablesProcessor struct {
 	ipt                      *iptables.IPTables
-	chains                   []IpTablesChain
-	rules                    map[string][]*NATRule
+	chains                   []api.IpTablesChain
+	rules                    map[string][]*api.NATRule
 	publicNodeIP             *net.IPAddr
 	jumpChainRefreshDuration time.Duration
 	jumpChainPosition        map[string]int16
 	ruleStalenessDuration    time.Duration
 	internalNetworks         []string
-	state                    StateStore
+	state                    state.StateStore
 }
 
-func (p *IpTablesProcessor) Apply(event *PodInfo) error {
+func (p *IpTablesProcessor) Apply(event *api.PodInfo) error {
 	// cases
 	// 1. ip:port mapping does not exist at all and add event => simple add to slice
 	// 2. ip:port mapping does exist and delete event and same pod => simple delete from slice
@@ -38,7 +41,7 @@ NATRULES:
 
 		var effSourceIP *net.IPAddr
 		if entry.SourceIP != nil {
-			effSourceIP = parseIP(*entry.SourceIP)
+			effSourceIP = common.ParseIP(*entry.SourceIP)
 		} else {
 			effSourceIP = p.publicNodeIP
 		}
@@ -53,7 +56,7 @@ NATRULES:
 		// case 1 - new entry
 		if _, ok := p.rules[key]; !ok {
 			klog.Warningf("creating new NAT rule for %s => %s:%d\n", key, event.IPv4, entry.DestinationPort)
-			p.rules[key] = append(p.rules[key], &NATRule{
+			p.rules[key] = append(p.rules[key], &api.NATRule{
 				SourceIP:        effSourceIP,
 				DestinationIP:   event.IPv4,
 				SourcePort:      entry.SourcePort,
@@ -95,7 +98,7 @@ NATRULES:
 
 		// case 4
 		klog.Infof("appending replacement NAT rule for %s => %s:%d (%s)\n", key, event.IPv4, entry.DestinationPort, event.Name)
-		p.rules[key] = append(p.rules[key], &NATRule{
+		p.rules[key] = append(p.rules[key], &api.NATRule{
 			SourceIP:        effSourceIP,
 			DestinationIP:   event.IPv4,
 			SourcePort:      entry.SourcePort,
@@ -117,7 +120,7 @@ NATRULES:
 	return nil
 }
 
-func (p *IpTablesProcessor) ensureChain(chain IpTablesChain) error {
+func (p *IpTablesProcessor) ensureChain(chain api.IpTablesChain) error {
 	existingChains, err := p.ipt.ListChains(chain.Table)
 	if err != nil {
 		klog.Errorf("listing chains of table %s failed: %v\n", chain.Table, err)
@@ -134,7 +137,7 @@ func (p *IpTablesProcessor) ensureChain(chain IpTablesChain) error {
 	return nil
 }
 
-func (p *IpTablesProcessor) computeRulePosition(chain IpTablesChain) int {
+func (p *IpTablesProcessor) computeRulePosition(chain api.IpTablesChain) int {
 	defaultPosition := 1
 
 	listRules, err := p.ipt.List(chain.Table, chain.JumpFrom)
@@ -152,10 +155,10 @@ func (p *IpTablesProcessor) computeRulePosition(chain IpTablesChain) int {
 	case chain.JumpFromPos > 0 && chain.JumpFromPos <= entryCount:
 		pos = chain.JumpFromPos
 	// insert from end of list up
-	case chain.JumpFromPos < 0 && abs(chain.JumpFromPos) <= entryCount:
+	case chain.JumpFromPos < 0 && common.Abs(chain.JumpFromPos) <= entryCount:
 		pos = entryCount + chain.JumpFromPos + 1
 	// append cases
-	case abs(chain.JumpFromPos) > entryCount:
+	case common.Abs(chain.JumpFromPos) > entryCount:
 		pos = entryCount
 	case chain.JumpFromPos == 0:
 		pos = entryCount
@@ -166,12 +169,12 @@ func (p *IpTablesProcessor) computeRulePosition(chain IpTablesChain) int {
 	return int(pos)
 }
 
-func (p *IpTablesProcessor) ensureJumpToChain(chain IpTablesChain) error {
+func (p *IpTablesProcessor) ensureJumpToChain(chain api.IpTablesChain) error {
 	ruleSpec := []string{
-		"-m", "comment", "--comment", fmt.Sprintf("%s[jump_to_chain]", *resourcePrefix), "-j", chain.Name,
+		"-m", "comment", "--comment", fmt.Sprintf("%s[jump_to_chain]", *common.ResourcePrefix), "-j", chain.Name,
 	}
 	ruleSpecCmp := []string{
-		"-A", chain.JumpFrom, "-m", "comment", "--comment", fmt.Sprintf("\"%s[jump_to_chain]\"", *resourcePrefix), "-j", chain.Name,
+		"-A", chain.JumpFrom, "-m", "comment", "--comment", fmt.Sprintf("\"%s[jump_to_chain]\"", *common.ResourcePrefix), "-j", chain.Name,
 	}
 	rulePosition := p.computeRulePosition(chain)
 
@@ -228,13 +231,13 @@ CREATE:
 	return nil
 }
 
-func (p *IpTablesProcessor) ensureDefaults(chain IpTablesChain) error {
+func (p *IpTablesProcessor) ensureDefaults(chain api.IpTablesChain) error {
 	switch chain.JumpFrom {
 	case "POSTROUTING":
 		// avoid NAT for internal network traffic
 		for i, n := range p.internalNetworks {
 			ruleSpec := []string{
-				"-d", n, "-m", "comment", "--comment", fmt.Sprintf("%s[no_snat_for_internal]", *resourcePrefix), "-j", "RETURN",
+				"-d", n, "-m", "comment", "--comment", fmt.Sprintf("%s[no_snat_for_internal]", *common.ResourcePrefix), "-j", "RETURN",
 			}
 			ruleExists, err := p.ipt.Exists(chain.Table, chain.Name, ruleSpec...)
 			if err != nil {
@@ -257,7 +260,7 @@ func (p *IpTablesProcessor) ensureDefaults(chain IpTablesChain) error {
 	return nil
 }
 
-func (p *IpTablesProcessor) getRule(chain IpTablesChain, rule *NATRule) []string {
+func (p *IpTablesProcessor) getRule(chain api.IpTablesChain, rule *api.NATRule) []string {
 	switch chain.JumpFrom {
 	case "FORWARD":
 		return []string{
@@ -299,7 +302,7 @@ func (p *IpTablesProcessor) reconcileRules() error {
 			if time.Now().Sub(rule.LastVerified) >= p.ruleStalenessDuration || rule.Created.Before(_lastRuleTimestamp) {
 				for _, chain := range p.chains {
 					klog.Infof("[chain:%s] deleting rule %v: %v\n", chain.Name, rule, p.getRule(chain, rule))
-					if *dryRun {
+					if *common.DryRun {
 						klog.Infof("dry-run activated, not deleting rule: %v\n", rule)
 						continue
 					}
@@ -324,7 +327,7 @@ func (p *IpTablesProcessor) reconcileRules() error {
 			klog.Warningf("unexpected conflicting entries, choosing first in list: %v\n", rule)
 		}
 		for _, chain := range p.chains {
-			if *dryRun {
+			if *common.DryRun {
 				klog.Warningf("dry-run activated, not applying rule: %v in chain %s\n", rule, chain.Name)
 				continue
 			}
@@ -342,6 +345,10 @@ func (p *IpTablesProcessor) reconcileRules() error {
 	return nil
 }
 
+func remove(s []*api.NATRule, index int) []*api.NATRule {
+	return append(s[:index], s[index+1:]...)
+}
+
 func (p *IpTablesProcessor) fetchState() {
 	bytes, err := p.state.Get()
 	if err != nil {
@@ -356,7 +363,7 @@ func (p *IpTablesProcessor) fetchState() {
 	return
 
 _default:
-	p.rules = make(map[string][]*NATRule)
+	p.rules = make(map[string][]*api.NATRule)
 }
 
 func (p *IpTablesProcessor) syncState() {
@@ -373,33 +380,33 @@ func (p *IpTablesProcessor) chainJumpPos(defaultChain string) {
 
 func (p *IpTablesProcessor) init() error {
 	p.fetchState()
-	p.publicNodeIP, _ = getPublicIPAddress(4)
+	p.publicNodeIP, _ = common.GetPublicIPAddress(4)
 	p.ruleStalenessDuration, _ = time.ParseDuration("600s")
 	p.jumpChainRefreshDuration, _ = time.ParseDuration("300s")
 	p.internalNetworks = []string{"172.16.0.0/12", "192.168.0.0/16", "10.0.0.0/8", "127.0.0.0/8"}
 	p.jumpChainPosition = map[string]int16{
-		"FORWARD":     parseJumpPos(*iptablesJump, 0),
-		"PREROUTING":  parseJumpPos(*iptablesJump, 1),
-		"POSTROUTING": parseJumpPos(*iptablesJump, 2),
+		"FORWARD":     common.ParseJumpPos(*common.IptablesJump, 0),
+		"PREROUTING":  common.ParseJumpPos(*common.IptablesJump, 1),
+		"POSTROUTING": common.ParseJumpPos(*common.IptablesJump, 2),
 	}
 
 	// positive number = actual position in chain, if not enough rules, then use last position
 	// negative number = go back from end of current list and insert there, or use last position if not enough rules
-	p.chains = []IpTablesChain{
+	p.chains = []api.IpTablesChain{
 		{
-			Name:        strings.ToUpper(fmt.Sprintf("%s_FORWARD", *resourcePrefix)),
+			Name:        strings.ToUpper(fmt.Sprintf("%s_FORWARD", *common.ResourcePrefix)),
 			Table:       "filter",
 			JumpFrom:    "FORWARD",
 			JumpFromPos: p.jumpChainPosition["FORWARD"],
 		},
 		{
-			Name:        strings.ToUpper(fmt.Sprintf("%s_PRE", *resourcePrefix)),
+			Name:        strings.ToUpper(fmt.Sprintf("%s_PRE", *common.ResourcePrefix)),
 			Table:       "nat",
 			JumpFrom:    "PREROUTING",
 			JumpFromPos: p.jumpChainPosition["PREROUTING"],
 		},
 		{
-			Name:        strings.ToUpper(fmt.Sprintf("%s_POST", *resourcePrefix)),
+			Name:        strings.ToUpper(fmt.Sprintf("%s_POST", *common.ResourcePrefix)),
 			Table:       "nat",
 			JumpFrom:    "POSTROUTING",
 			JumpFromPos: p.jumpChainPosition["POSTROUTING"],
@@ -407,7 +414,7 @@ func (p *IpTablesProcessor) init() error {
 	}
 
 	for _, chain := range p.chains {
-		if *dryRun {
+		if *common.DryRun {
 			klog.Infof("dryRun mode enabled, not initializing iptables chain %s in table %s\n", chain.Name, chain.Table)
 			continue
 		}
@@ -432,7 +439,7 @@ func (p *IpTablesProcessor) init() error {
 		// XXX: the default chains are impacted by other ipt related software like cilium
 		//      run periodically to make sure rule position is always correct
 		//      otherwise we might lose source NAT mapping
-		go func(chain IpTablesChain) {
+		go func(chain api.IpTablesChain) {
 			for {
 				if err := p.ensureJumpToChain(chain); err != nil {
 					klog.Warningf("setup jumping into iptables chain %s in table %s failed with error %v\n",
@@ -450,7 +457,7 @@ func (p *IpTablesProcessor) init() error {
 }
 
 // TODO: add v6 iptables support
-func NewIpTablesProcessor(remoteState StateStore) *IpTablesProcessor {
+func NewIpTablesProcessor(remoteState state.StateStore) *IpTablesProcessor {
 	ipt, err := iptables.New()
 	if err != nil {
 		klog.Errorf("initializing of iptables failed: %v\n", err)

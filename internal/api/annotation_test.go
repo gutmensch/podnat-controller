@@ -1,7 +1,8 @@
-package main
+package api
 
 import (
 	"errors"
+	"github.com/gutmensch/podnat-controller/internal/common"
 	"reflect"
 	"testing"
 )
@@ -15,12 +16,12 @@ func TestGoodAnnotationJSON(t *testing.T) {
 	expectedOutput := &PodNATAnnotation{
 		TableEntries: []NATDefinition{
 			{InterfaceAutoDetect: true, SourceIP: nil, SourcePort: 25, DestinationPort: 25, Protocol: "tcp"},
-			{InterfaceAutoDetect: false, SourceIP: ptr("192.168.1.10"), SourcePort: 143, DestinationPort: 143, Protocol: "tcp"},
+			{InterfaceAutoDetect: false, SourceIP: common.Ptr("192.168.1.10"), SourcePort: 143, DestinationPort: 143, Protocol: "tcp"},
 			{InterfaceAutoDetect: true, SourceIP: nil, SourcePort: 8888, DestinationPort: 18888, Protocol: "udp"},
 		},
 	}
 
-	out, err := parseAnnotation(input)
+	out, err := ParseAnnotation(input)
 	if err != nil {
 		t.Fatal("Failure message", err)
 	}
@@ -36,7 +37,7 @@ func TestBadPortAnnotationJSON(t *testing.T) {
 	{"srcPort":0,"dstPort":0}
 	]}`
 
-	_, err := parseAnnotation(input)
+	_, err := ParseAnnotation(input)
 	if err.Error() != errors.New("port 0 is reserved and cannot be used").Error() {
 		t.Fatal("Expected error 'port 0 is reserved and cannot be used' but got", err)
 	}

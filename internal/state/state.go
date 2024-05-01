@@ -1,4 +1,4 @@
-package main
+package state
 
 type StateStore interface {
 	Get() ([]byte, error)

@@ -1,9 +1,10 @@
-package main
+package api
 
 import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/gutmensch/podnat-controller/internal/common"
 	"strings"
 
 	"golang.org/x/exp/slices"
@@ -34,7 +35,7 @@ func (c *NATDefinition) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-func parseAnnotation(data string) (*PodNATAnnotation, error) {
+func ParseAnnotation(data string) (*PodNATAnnotation, error) {
 	pa := &PodNATAnnotation{}
 
 	err := json.Unmarshal([]byte(data), pa)
@@ -59,12 +60,16 @@ func parseAnnotation(data string) (*PodNATAnnotation, error) {
 			return nil, errors.New("supported protocols for NAT entries are 'tcp' and 'udp'")
 		}
 
-		_restrictedPorts, _ := sliceAtoi(strings.Split(*restrictedPorts, ","))
+		if common.RestrictedPorts == nil {
+			continue
+		}
+
+		_restrictedPorts, _ := common.SliceAtoi(strings.Split(*common.RestrictedPorts, ","))
 		if slices.Contains(_restrictedPorts, def.SourcePort) || slices.Contains(_restrictedPorts, def.DestinationPort) {
 			return nil, errors.New(
 				fmt.Sprintf(
 					"restricted ports %v are not allowed by default",
-					restrictedPorts,
+					*common.RestrictedPorts,
 				),
 			)
 		}
