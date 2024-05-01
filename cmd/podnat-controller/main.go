@@ -29,7 +29,6 @@ func init() {
 	flag.StringVar(common.ResourcePrefix, "resourcePrefix", "podnat", "resource prefix used for firewall chains and comments")
 	flag.StringVar(common.NodeID, "nodeID", common.ShortHostName(common.GetEnv("HOSTNAME", "node")), "k8s node identifier")
 	flag.StringVar(common.StateFlavor, "stateFlavor", "configmap", "state implementation to save iptables rules")
-
 }
 
 func main() {
