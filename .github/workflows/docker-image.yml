@@ -27,7 +27,7 @@ jobs:
       id: meta
       uses: docker/metadata-action@v4
       with:
-        images: gutmensch/dmarc-report
+        images: gutmensch/podnat-controller
         flavor: latest=true
         tags: |
           type=ref,event=branch
@@ -50,6 +50,6 @@ jobs:
         push: ${{ github.ref_type == 'tag' }}
         tags: |
           ${{ steps.meta.outputs.tags }}
-          gutmensch/dmarc-report:latest
+          gutmensch/podnat-controller:latest
         labels: ${{ steps.meta.outputs.labels }}
 
