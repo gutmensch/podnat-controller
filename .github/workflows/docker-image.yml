@@ -48,8 +48,6 @@ jobs:
         platforms: linux/amd64, linux/arm64
         file: Dockerfile
         push: ${{ github.ref_type == 'tag' }}
-        tags: |
-          ${{ steps.meta.outputs.tags }}
-          gutmensch/podnat-controller:latest
+        tags: ${{ steps.meta.outputs.tags }}
         labels: ${{ steps.meta.outputs.labels }}
 
