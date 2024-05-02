@@ -1,4 +1,4 @@
-name: Helm Chart Prod CI
+name: helm-chart-release
 
 on:
   push:
@@ -6,7 +6,7 @@ on:
       - master
 
 jobs:
-  release:
+  package-and-upload:
     runs-on: ubuntu-latest
 
     permissions:

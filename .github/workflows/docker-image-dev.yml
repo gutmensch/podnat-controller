@@ -1,4 +1,4 @@
-name: Docker Image Dev CI
+name: docker-image-dev
 
 on:
   pull_request:
