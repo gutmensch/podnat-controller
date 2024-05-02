@@ -1,0 +1,71 @@
+name: check-valid-version
+
+on:
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  get-pr-version:
+    runs-on: ubuntu-latest
+
+    outputs:
+      chartVersion: ${{ steps.get.outputs.chartVersion }}
+      appVersion: ${{ steps.get.outputs.appVersion }}
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - id: get
+      run: |
+        chart_file=build/package/helm/podnat-controller/Chart.yaml
+        chart_release_version=$(awk -F: '/^version:/ {gsub(/ /, "");print $2}' $chart_file)
+        chart_release_appversion=$(awk -F: '/^appVersion:/ {gsub(/ /, "");print $2}' $chart_file)
+        echo "chartVersion=${chart_release_version}" >> $GITHUB_OUTPUT
+        echo "appVersion=${chart_release_appversion}" >> $GITHUB_OUTPUT
+
+  get-master-version:
+    runs-on: ubuntu-latest
+
+    outputs:
+      chartVersion: ${{ steps.get.outputs.chartVersion }}
+      appVersion: ${{ steps.get.outputs.appVersion }}
+
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        ref: master
+
+    - id: get
+      run: |
+        chart_file=build/package/helm/podnat-controller/Chart.yaml
+        chart_release_version=$(awk -F: '/^version:/ {gsub(/ /, "");print $2}' $chart_file)
+        chart_release_appversion=$(awk -F: '/^appVersion:/ {gsub(/ /, "");print $2}' $chart_file)
+        echo "chartVersion=${chart_release_version}" >> $GITHUB_OUTPUT
+        echo "appVersion=${chart_release_appversion}" >> $GITHUB_OUTPUT
+
+  compare:
+    runs-on: ubuntu-latest
+    needs: [get-pr-version, get-master-version]
+    steps:
+
+    - uses: madhead/semver-utils@latest
+      id: chart
+      with:
+        version: ${{ needs.get-pr-version.outputs.chartVersion }}
+        compare-to: ${{ needs.get-master-version.outputs.chartVersion }}
+    
+    - uses: madhead/semver-utils@latest
+      id: app
+      with:
+        version: ${{ needs.get-pr-version.outputs.appVersion }}
+        compare-to: ${{ needs.get-master-version.outputs.appVersion }}
+
+    - name: Check version increase
+      run: |
+        if [ "${{ steps.chart.outputs.comparison-result }}" != ">" ]; then
+          exit 1
+        fi
+        if [ "${{ steps.app.outputs.comparison-result }}" != ">" ]; then
+          exit 1
+        fi
