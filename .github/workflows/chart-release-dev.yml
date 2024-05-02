@@ -36,11 +36,11 @@ jobs:
       - name: Set version
         run: |
           chart_file=build/package/helm/podnat-controller/Chart.yaml
-          chart_release_version=$(awk -F: '/^version:/ {gsub(/ /, "", $2);print}' $chart_file)
+          chart_release_version=$(awk -F: '/^version:/ {gsub(/ /, "");print $2}' $chart_file)
           sha_short=$(git rev-parse --short "${{ github.event.pull_request.head.sha }}")
           chart_version="${chart_release_version}-dev-${sha_short}"
-          sed -i "s/^version: .*/version: ${chart_version}" $chart_file
-          sed -i "s/^appVersion: .*/appVersion: \"${chart_version}\"" $chart_file
+          sed -i "s/^version: .*/version: ${chart_version}/" $chart_file
+          sed -i "s/^appVersion: .*/appVersion: \"${chart_version}\"/" $chart_file
 
       - name: Release chart
         uses: helm/chart-releaser-action@v1.4.1
