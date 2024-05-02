@@ -40,5 +40,4 @@ jobs:
         file: build/package/Dockerfile
         push: true
         tags: gutmensch/podnat-controller:${{ steps.version.outputs.version }}
-        labels: ${{ steps.meta.outputs.labels }}
 
