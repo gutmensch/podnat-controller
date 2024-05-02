@@ -1,4 +1,4 @@
-name: Release Helm Charts
+name: Release Production Helm Chart
 
 on:
   push:
@@ -14,7 +14,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
 
@@ -24,7 +24,7 @@ jobs:
           git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
 
       - name: Install Helm
-        uses: azure/setup-helm@v1
+        uses: azure/setup-helm@v4
         with:
           version: v3.10.0
 
@@ -33,7 +33,7 @@ jobs:
       #  run: |
       #    helm repo add remembrance https://remembrance.github.io/podnat-controller
 
-      - name: Run chart-releaser
+      - name: Release chart
         uses: helm/chart-releaser-action@v1.4.1
         with:
           charts_dir: build/package/helm

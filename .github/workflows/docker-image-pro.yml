@@ -1,4 +1,4 @@
-name: Docker Image CI
+name: Docker Image Production CI
 
 on:
   push:
@@ -6,9 +6,6 @@ on:
       - master
     tags:
       - "v*"
-  pull_request:
-    branches:
-      - master
 
 jobs:
   build-and-release:
@@ -31,7 +28,6 @@ jobs:
         flavor: latest=true
         tags: |
           type=ref,event=branch
-          type=ref,event=pr
           type=semver,pattern={{version}}
 
     - name: Login to DockerHub

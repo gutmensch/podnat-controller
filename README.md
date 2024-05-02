@@ -2,6 +2,13 @@
 
 Instead of using sophisticated load balancing, this controller is just watching for pod annotations and creating related iptables node NAT entries to send traffic to a pod on a specific port directly, and return the traffic over the same public IP. This can be useful for single pod ingress deployments or mail server pods, which need direct NAT for IP lookups, etc. The DaemonSet pods needs `NET_ADMIN` privileges and `hostNetwork: true` setting.
 
+## Version bump
+
+```bash
+pip install --upgrade bumpversion
+bumpversion patch
+```
+
 ## Annotation format
 
 The JSON format expects a list (holding port objects) called 'entries' in the top level object. The entries for this list use following values

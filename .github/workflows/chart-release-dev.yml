@@ -1,0 +1,50 @@
+name: Release Development Helm Chart
+
+on:
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Configure Git
+        run: |
+          git config user.name "$GITHUB_ACTOR"
+          git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.10.0
+
+      # XXX: not needed anymore since change from webdav to configmap
+      #- name: Add self-dependency chart repo
+      #  run: |
+      #    helm repo add remembrance https://remembrance.github.io/podnat-controller
+
+      - name: Set version
+        run: |
+          chart_file=build/package/helm/podnat-controller/Chart.yaml
+          chart_release_version=$(awk -F: '/^version:/ {gsub(/ /, "", $2);print}' $chart_file)
+          sha_short=$(git rev-parse --short "${{ github.event.pull_request.head.sha }}")
+          chart_version="${chart_release_version}-dev-${sha_short}"
+          sed -i "s/^version: .*/version: ${chart_version}" $chart_file
+          sed -i "s/^appVersion: .*/appVersion: \"${chart_version}\"" $chart_file
+
+      - name: Release chart
+        uses: helm/chart-releaser-action@v1.4.1
+        with:
+          charts_dir: build/package/helm
+        env:
+          CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
