@@ -1,4 +1,4 @@
-name: Release Production Helm Chart
+name: Helm Chart Prod CI
 
 on:
   push:
@@ -34,8 +34,9 @@ jobs:
       #    helm repo add remembrance https://remembrance.github.io/podnat-controller
 
       - name: Release chart
-        uses: helm/chart-releaser-action@v1.4.1
+        uses: helm/chart-releaser-action@v1.6.0
         with:
           charts_dir: build/package/helm
+          mark_as_latest: true
         env:
           CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"

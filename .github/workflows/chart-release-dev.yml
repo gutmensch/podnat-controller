@@ -1,4 +1,4 @@
-name: Release Development Helm Chart
+name: Helm Chart Dev CI
 
 on:
   pull_request:
@@ -43,8 +43,9 @@ jobs:
           sed -i "s/^appVersion: .*/appVersion: \"${chart_version}\"/" $chart_file
 
       - name: Release chart
-        uses: helm/chart-releaser-action@v1.4.1
+        uses: helm/chart-releaser-action@v1.6.0
         with:
           charts_dir: build/package/helm
+          mark_as_latest: false
         env:
           CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
