@@ -3,7 +3,7 @@ module github.com/gutmensch/podnat-controller
 go 1.21
 
 require (
-	github.com/coreos/go-iptables v0.6.0
+	github.com/coreos/go-iptables v0.7.0
 	github.com/jpillora/ipfilter v1.2.8
 	github.com/studio-b12/gowebdav v0.0.0-20221109171924-60ec5ad56012
 	golang.org/x/exp v0.0.0-20221215174704-0915cd710c24

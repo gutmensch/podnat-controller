@@ -157,6 +157,9 @@ func (p *IpTablesProcessor) computeRulePosition(chain api.IpTablesChain) int {
 	// insert from end of list up
 	case chain.JumpFromPos < 0 && common.Abs(chain.JumpFromPos) <= entryCount:
 		pos = entryCount + chain.JumpFromPos + 1
+	// empty chain except policy
+	case entryCount == 0:
+		pos = int16(defaultPosition)
 	// append cases
 	case common.Abs(chain.JumpFromPos) > entryCount:
 		pos = entryCount
@@ -211,6 +214,8 @@ func (p *IpTablesProcessor) ensureJumpToChain(chain api.IpTablesChain) error {
 	}
 
 	// 3b
+	klog.Infof("deleting rule %v in table %s at position with wrong position\n", ruleSpec, chain.Table)
+
 	err = p.ipt.Delete(chain.Table, chain.JumpFrom, ruleSpec...)
 	if err != nil {
 		klog.Errorf(
@@ -224,7 +229,7 @@ func (p *IpTablesProcessor) ensureJumpToChain(chain api.IpTablesChain) error {
 	}
 
 CREATE:
-	klog.Infof("adding jump rule %v in table %s\n", ruleSpec, chain.Table)
+	klog.Infof("adding jump rule %v in table %s at position %d\n", ruleSpec, chain.Table, rulePosition)
 	err = p.ipt.Insert(chain.Table, chain.JumpFrom, rulePosition, ruleSpec...)
 	if err != nil {
 		return err
@@ -375,9 +380,6 @@ func (p *IpTablesProcessor) syncState() {
 	if err != nil {
 		klog.Warningf("could not sync to remote state: %v\n", err)
 	}
-}
-
-func (p *IpTablesProcessor) chainJumpPos(defaultChain string) {
 }
 
 func (p *IpTablesProcessor) init() error {
