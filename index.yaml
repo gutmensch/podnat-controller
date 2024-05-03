@@ -2,6 +2,17 @@ apiVersion: v1
 entries:
   podnat-controller:
   - apiVersion: v2
+    appVersion: 0.5.1-dev-9645f2b
+    created: "2024-05-03T08:34:21.92462986Z"
+    description: A Helm chart for podnat-controller - a simple stupid NAT to pod service
+      for bare metal/root server k8s clusters
+    digest: fe62a85f651c970ed19dc9bb956a71224331290fb37eaece4e73c11d367bbc67
+    name: podnat-controller
+    type: application
+    urls:
+    - https://github.com/remembrance/podnat-controller/releases/download/podnat-controller-0.5.1-dev-9645f2b/podnat-controller-0.5.1-dev-9645f2b.tgz
+    version: 0.5.1-dev-9645f2b
+  - apiVersion: v2
     appVersion: 0.5.1-dev-4c9fede
     created: "2024-05-02T21:28:39.4242422Z"
     description: A Helm chart for podnat-controller - a simple stupid NAT to pod service
@@ -409,4 +420,4 @@ entries:
     urls:
     - https://github.com/remembrance/podnat-controller/releases/download/podnat-state-store-0.1.0/podnat-state-store-0.1.0.tgz
     version: 0.1.0
-generated: "2024-05-02T21:28:39.424436635Z"
+generated: "2024-05-03T08:34:21.924906475Z"
