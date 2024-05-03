@@ -1,0 +1,40 @@
+name: helm-chart-release
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  package-and-upload:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Configure Git
+        run: |
+          git config user.name "$GITHUB_ACTOR"
+          git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.10.0
+
+      # XXX: not needed anymore since change from webdav to configmap
+      #- name: Add self-dependency chart repo
+      #  run: |
+      #    helm repo add remembrance https://remembrance.github.io/podnat-controller
+
+      - name: Release chart
+        uses: helm/chart-releaser-action@v1.6.0
+        with:
+          charts_dir: build/package/helm
+          mark_as_latest: true
+        env:
+          CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
