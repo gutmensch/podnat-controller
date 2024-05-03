@@ -75,7 +75,7 @@ func GetPublicIPAddress(version uint8) (*net.IPAddr, error) {
 	}
 
 	f := ipfilter.New(ipfilter.Options{
-		BlockedIPs:     getFilteredNetworks(*ExcludeFilterNetworks, *IncludeFilterNetworks),
+		BlockedIPs:     getFilteredNetworks(ExcludeFilterNetworks, IncludeFilterNetworks),
 		BlockByDefault: false,
 	})
 

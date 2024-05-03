@@ -55,7 +55,7 @@ func (s *WebDAVState) init() error {
 func NewWebDavState() *WebDAVState {
 	state := &WebDAVState{
 		Client:    gowebdav.NewClient("http://podnat-state-store:80", "", ""),
-		Directory: *common.NodeID,
+		Directory: common.NodeID,
 		File:      "state.json",
 	}
 

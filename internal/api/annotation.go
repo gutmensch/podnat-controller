@@ -60,16 +60,16 @@ func ParseAnnotation(data string) (*PodNATAnnotation, error) {
 			return nil, errors.New("supported protocols for NAT entries are 'tcp' and 'udp'")
 		}
 
-		if common.RestrictedPorts == nil {
+		if common.RestrictedPorts == "" {
 			continue
 		}
 
-		_restrictedPorts, _ := common.SliceAtoi(strings.Split(*common.RestrictedPorts, ","))
+		_restrictedPorts, _ := common.SliceAtoi(strings.Split(common.RestrictedPorts, ","))
 		if slices.Contains(_restrictedPorts, def.SourcePort) || slices.Contains(_restrictedPorts, def.DestinationPort) {
 			return nil, errors.New(
 				fmt.Sprintf(
 					"restricted ports %v are not allowed by default",
-					*common.RestrictedPorts,
+					common.RestrictedPorts,
 				),
 			)
 		}

@@ -14,12 +14,12 @@ import (
 type DummyProcessor struct{}
 
 func NewDummyProcessor() *DummyProcessor {
-	klog.Warningf("firewall flavor '%s' not implemented, please use a supported firewall", *common.FirewallFlavor)
+	klog.Warningf("firewall flavor '%s' not implemented, please use a supported firewall", common.FirewallFlavor)
 	proc := &DummyProcessor{}
 	return proc
 }
 
 func (p *DummyProcessor) Apply(event *api.PodInfo) error {
-	klog.Warningf("firewall flavor '%s' not implemented, please use a supported firewall", *common.FirewallFlavor)
+	klog.Warningf("firewall flavor '%s' not implemented, please use a supported firewall", common.FirewallFlavor)
 	return nil
 }

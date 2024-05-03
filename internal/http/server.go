@@ -8,22 +8,22 @@ import (
 	"k8s.io/klog/v2"
 )
 
-type httpServer struct {
+type HttpServer struct {
 	port int
 	mux  *http.ServeMux
 }
 
 func liveness(w http.ResponseWriter, req *http.Request) {
-	fmt.Fprintf(w, "pong\n")
+	_, _ = fmt.Fprintf(w, "pong\n")
 }
 
 func generateNatEntryList(w http.ResponseWriter, req *http.Request) {
-	fmt.Fprintf(w, "TODO: generate list of all current NAT entries\n")
+	_, _ = fmt.Fprintf(w, "TODO: generate list of all current NAT entries\n")
 }
 
-func NewHTTPServer() *httpServer {
-	server := &httpServer{
-		port: *common.HTTPPort,
+func NewHTTPServer() *HttpServer {
+	server := &HttpServer{
+		port: common.HTTPPort,
 		mux:  http.NewServeMux(),
 	}
 	server.mux.HandleFunc("/healthz", liveness)
@@ -33,6 +33,6 @@ func NewHTTPServer() *httpServer {
 	return server
 }
 
-func (s *httpServer) Run() {
+func (s *HttpServer) Run() {
 	klog.Fatalln(http.ListenAndServe(fmt.Sprintf(":%d", s.port), s.mux))
 }

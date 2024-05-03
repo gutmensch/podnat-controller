@@ -101,7 +101,7 @@ func NewConfigMapState() *ConfigMapState {
 
 	state := &ConfigMapState{
 		Client:    clientSet,
-		Name:      fmt.Sprintf("podnat-controller-%s", *common.NodeID),
+		Name:      fmt.Sprintf("podnat-controller-%s", common.NodeID),
 		Namespace: common.GetEnv("NAMESPACE", "podnat-controller-system"),
 	}
 

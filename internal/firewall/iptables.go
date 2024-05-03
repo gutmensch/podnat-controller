@@ -171,10 +171,10 @@ func (p *IpTablesProcessor) computeRulePosition(chain api.IpTablesChain) int {
 
 func (p *IpTablesProcessor) ensureJumpToChain(chain api.IpTablesChain) error {
 	ruleSpec := []string{
-		"-m", "comment", "--comment", fmt.Sprintf("%s[jump_to_chain]", *common.ResourcePrefix), "-j", chain.Name,
+		"-m", "comment", "--comment", fmt.Sprintf("%s[jump_to_chain]", common.ResourcePrefix), "-j", chain.Name,
 	}
 	ruleSpecCmp := []string{
-		"-A", chain.JumpFrom, "-m", "comment", "--comment", fmt.Sprintf("\"%s[jump_to_chain]\"", *common.ResourcePrefix), "-j", chain.Name,
+		"-A", chain.JumpFrom, "-m", "comment", "--comment", fmt.Sprintf("\"%s[jump_to_chain]\"", common.ResourcePrefix), "-j", chain.Name,
 	}
 	rulePosition := p.computeRulePosition(chain)
 
@@ -237,7 +237,7 @@ func (p *IpTablesProcessor) ensureDefaults(chain api.IpTablesChain) error {
 		// avoid NAT for internal network traffic
 		for i, n := range p.internalNetworks {
 			ruleSpec := []string{
-				"-d", n, "-m", "comment", "--comment", fmt.Sprintf("%s[no_snat_for_internal]", *common.ResourcePrefix), "-j", "RETURN",
+				"-d", n, "-m", "comment", "--comment", fmt.Sprintf("%s[no_snat_for_internal]", common.ResourcePrefix), "-j", "RETURN",
 			}
 			ruleExists, err := p.ipt.Exists(chain.Table, chain.Name, ruleSpec...)
 			if err != nil {
@@ -302,7 +302,7 @@ func (p *IpTablesProcessor) reconcileRules() error {
 			if time.Now().Sub(rule.LastVerified) >= p.ruleStalenessDuration || rule.Created.Before(_lastRuleTimestamp) {
 				for _, chain := range p.chains {
 					klog.Infof("[chain:%s] deleting rule %v: %v\n", chain.Name, rule, p.getRule(chain, rule))
-					if *common.DryRun {
+					if common.DryRun {
 						klog.Infof("dry-run activated, not deleting rule: %v\n", rule)
 						continue
 					}
@@ -327,7 +327,7 @@ func (p *IpTablesProcessor) reconcileRules() error {
 			klog.Warningf("unexpected conflicting entries, choosing first in list: %v\n", rule)
 		}
 		for _, chain := range p.chains {
-			if *common.DryRun {
+			if common.DryRun {
 				klog.Warningf("dry-run activated, not applying rule: %v in chain %s\n", rule, chain.Name)
 				continue
 			}
@@ -385,28 +385,28 @@ func (p *IpTablesProcessor) init() error {
 	p.jumpChainRefreshDuration, _ = time.ParseDuration("300s")
 	p.internalNetworks = []string{"172.16.0.0/12", "192.168.0.0/16", "10.0.0.0/8", "127.0.0.0/8"}
 	p.jumpChainPosition = map[string]int16{
-		"FORWARD":     common.ParseJumpPos(*common.IptablesJump, 0),
-		"PREROUTING":  common.ParseJumpPos(*common.IptablesJump, 1),
-		"POSTROUTING": common.ParseJumpPos(*common.IptablesJump, 2),
+		"FORWARD":     common.ParseJumpPos(common.IptablesJump, 0),
+		"PREROUTING":  common.ParseJumpPos(common.IptablesJump, 1),
+		"POSTROUTING": common.ParseJumpPos(common.IptablesJump, 2),
 	}
 
 	// positive number = actual position in chain, if not enough rules, then use last position
 	// negative number = go back from end of current list and insert there, or use last position if not enough rules
 	p.chains = []api.IpTablesChain{
 		{
-			Name:        strings.ToUpper(fmt.Sprintf("%s_FORWARD", *common.ResourcePrefix)),
+			Name:        strings.ToUpper(fmt.Sprintf("%s_FORWARD", common.ResourcePrefix)),
 			Table:       "filter",
 			JumpFrom:    "FORWARD",
 			JumpFromPos: p.jumpChainPosition["FORWARD"],
 		},
 		{
-			Name:        strings.ToUpper(fmt.Sprintf("%s_PRE", *common.ResourcePrefix)),
+			Name:        strings.ToUpper(fmt.Sprintf("%s_PRE", common.ResourcePrefix)),
 			Table:       "nat",
 			JumpFrom:    "PREROUTING",
 			JumpFromPos: p.jumpChainPosition["PREROUTING"],
 		},
 		{
-			Name:        strings.ToUpper(fmt.Sprintf("%s_POST", *common.ResourcePrefix)),
+			Name:        strings.ToUpper(fmt.Sprintf("%s_POST", common.ResourcePrefix)),
 			Table:       "nat",
 			JumpFrom:    "POSTROUTING",
 			JumpFromPos: p.jumpChainPosition["POSTROUTING"],
@@ -414,7 +414,7 @@ func (p *IpTablesProcessor) init() error {
 	}
 
 	for _, chain := range p.chains {
-		if *common.DryRun {
+		if common.DryRun {
 			klog.Infof("dryRun mode enabled, not initializing iptables chain %s in table %s\n", chain.Name, chain.Table)
 			continue
 		}
