@@ -1,6 +1,6 @@
 module github.com/gutmensch/podnat-controller
 
-go 1.19
+go 1.21
 
 require (
 	github.com/coreos/go-iptables v0.6.0
