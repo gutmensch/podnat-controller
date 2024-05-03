@@ -12,7 +12,7 @@ import (
 )
 
 var (
-	fwProc  firewall.FirewallProcessor
+	fwProc  firewall.Processor
 	fwState state.StateStore
 )
 

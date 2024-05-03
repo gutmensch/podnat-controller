@@ -166,6 +166,8 @@ func (p *IpTablesProcessor) computeRulePosition(chain api.IpTablesChain) int {
 		pos = int16(defaultPosition)
 	}
 
+	klog.Infof("debug: chain:%v and existing entries:%d and computed pos:%d\n", chain, entryCount, pos)
+
 	return int(pos)
 }
 
@@ -177,7 +179,6 @@ func (p *IpTablesProcessor) ensureJumpToChain(chain api.IpTablesChain) error {
 		"-A", chain.JumpFrom, "-m", "comment", "--comment", fmt.Sprintf("\"%s[jump_to_chain]\"", common.ResourcePrefix), "-j", chain.Name,
 	}
 	rulePosition := p.computeRulePosition(chain)
-
 	// algorithm
 	// 1. list all rules in ipt default chain (jumpfrom)
 	// 2. if rule is not in list, insert at computed position and return
@@ -189,8 +190,10 @@ func (p *IpTablesProcessor) ensureJumpToChain(chain api.IpTablesChain) error {
 	rules, _ := p.ipt.List(chain.Table, chain.JumpFrom)
 	ruleInList := false
 	ruleInListPosition := -1
+	cmp := strings.Join(ruleSpecCmp, " ")
 	for i, r := range rules {
-		if r == strings.Join(ruleSpecCmp, " ") {
+		klog.Infof("debug: existing rule:'%s' expected rule:'%s' result:%v\n", r, cmp, r == cmp)
+		if r == cmp {
 			ruleInList = true
 			ruleInListPosition = i
 			break
@@ -221,10 +224,9 @@ func (p *IpTablesProcessor) ensureJumpToChain(chain api.IpTablesChain) error {
 	}
 
 CREATE:
-	klog.Infof("adding jump rule %v in table %s: %v\n", ruleSpec, chain.Table)
+	klog.Infof("adding jump rule %v in table %s\n", ruleSpec, chain.Table)
 	err = p.ipt.Insert(chain.Table, chain.JumpFrom, rulePosition, ruleSpec...)
 	if err != nil {
-		klog.Errorf("adding jump rule %v in table %s failed: %v\n", ruleSpec, chain.Table, err)
 		return err
 	}
 
