@@ -52,7 +52,7 @@ func main() {
 	switch common.FirewallFlavor {
 	case "iptables":
 		// XXX: with iptables we need a state to survive pod/node restarts
-		fwProc = firewall.NewIpTablesProcessor(fwState)
+		fwProc = firewall.NewIpTablesProcessor(fwState, false)
 	default:
 		fwProc = firewall.NewDummyProcessor()
 	}

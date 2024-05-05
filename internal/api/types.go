@@ -39,8 +39,8 @@ type NATRule struct {
 }
 
 type IpTablesChain struct {
-	Name        string
-	Table       string
-	JumpFrom    string
-	JumpFromPos int16
+	Name         string
+	Table        string
+	ParentChain  string
+	RulePosition int16
 }
