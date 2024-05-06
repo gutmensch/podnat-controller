@@ -17,9 +17,16 @@ import (
 	"github.com/coreos/go-iptables/iptables"
 )
 
+type IPTablesChain struct {
+	Name         string
+	Table        string
+	ParentChain  string
+	RulePosition int16
+}
+
 type IPTablesProcessor struct {
 	ipt                      IPTablesInterface
-	chains                   []api.IpTablesChain
+	chains                   []IPTablesChain
 	rules                    map[string][]*api.NATRule
 	publicNodeIP             *net.IPAddr
 	jumpChainRefreshDuration time.Duration
@@ -145,7 +152,7 @@ NATRULES:
 	return nil
 }
 
-func (p *IPTablesProcessor) ensureChain(chain api.IpTablesChain) error {
+func (p *IPTablesProcessor) ensureChain(chain IPTablesChain) error {
 	existingChains, err := p.ipt.ListChains(chain.Table)
 	if err != nil {
 		klog.Errorf("listing chains of table %s failed: %v\n", chain.Table, err)
@@ -162,7 +169,7 @@ func (p *IPTablesProcessor) ensureChain(chain api.IpTablesChain) error {
 	return nil
 }
 
-func (p *IPTablesProcessor) computeRulePosition(chain api.IpTablesChain, rules []string) int {
+func (p *IPTablesProcessor) computeRulePosition(chain IPTablesChain, rules []string) int {
 	defaultPosition := 1
 
 	// policy is first entry in rules list, real rules start with 1
@@ -192,7 +199,7 @@ func (p *IPTablesProcessor) computeRulePosition(chain api.IpTablesChain, rules [
 	return int(pos)
 }
 
-func (p *IPTablesProcessor) ensureJumpToChain(chain api.IpTablesChain) error {
+func (p *IPTablesProcessor) ensureJumpToChain(chain IPTablesChain) error {
 	var err error
 
 	ruleSpec := []string{
@@ -262,7 +269,7 @@ CREATE:
 	return nil
 }
 
-func (p *IPTablesProcessor) ensureDefaults(chain api.IpTablesChain) error {
+func (p *IPTablesProcessor) ensureDefaults(chain IPTablesChain) error {
 	switch chain.ParentChain {
 	case "POSTROUTING":
 		// avoid NAT for internal network traffic
@@ -291,7 +298,7 @@ func (p *IPTablesProcessor) ensureDefaults(chain api.IpTablesChain) error {
 	return nil
 }
 
-func (p *IPTablesProcessor) getRule(chain api.IpTablesChain, rule *api.NATRule) []string {
+func (p *IPTablesProcessor) getRule(chain IPTablesChain, rule *api.NATRule) []string {
 	switch chain.ParentChain {
 	case "FORWARD":
 		return []string{
@@ -420,7 +427,7 @@ func (p *IPTablesProcessor) init() error {
 
 	// positive number = actual position in chain, if not enough rules, then use last position
 	// negative number = go back from end of current list and insert there, or use last position if not enough rules
-	p.chains = []api.IpTablesChain{
+	p.chains = []IPTablesChain{
 		{
 			Name:         strings.ToUpper(fmt.Sprintf("%s_FORWARD", common.ResourcePrefix)),
 			Table:        "filter",
@@ -467,7 +474,7 @@ func (p *IPTablesProcessor) init() error {
 		// XXX: the default chains are impacted by other ipt related software like cilium
 		//      run periodically to make sure rule position is always correct
 		//      otherwise we might lose source NAT mapping
-		go func(chain api.IpTablesChain) {
+		go func(chain IPTablesChain) {
 			for {
 				if err := p.ensureJumpToChain(chain); err != nil {
 					klog.Warningf("setup jumping into iptables chain %s in table %s failed with error %v\n",

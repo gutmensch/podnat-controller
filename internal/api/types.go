@@ -37,10 +37,3 @@ type NATRule struct {
 	Created         time.Time   `json:"Created"`
 	Comment         string      `json:"Comment"`
 }
-
-type IpTablesChain struct {
-	Name         string
-	Table        string
-	ParentChain  string
-	RulePosition int16
-}

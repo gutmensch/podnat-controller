@@ -24,7 +24,7 @@ func TestComputeRulePosition_0_Entries(t *testing.T) {
 		1:  1,
 		2:  1,
 	} {
-		chain := api.IpTablesChain{
+		chain := IPTablesChain{
 			Name:         "PODNAT_PRE",
 			Table:        "nat",
 			ParentChain:  "PREROUTING",
@@ -53,7 +53,7 @@ func TestComputeRulePosition_1_Entries(t *testing.T) {
 		1:  1,
 		2:  1,
 	} {
-		chain := api.IpTablesChain{
+		chain := IPTablesChain{
 			Name:         "PODNAT_PRE",
 			Table:        "nat",
 			ParentChain:  "PREROUTING",
@@ -83,7 +83,7 @@ func TestComputeRulePosition_2_Entries(t *testing.T) {
 		1:  1,
 		2:  2,
 	} {
-		chain := api.IpTablesChain{
+		chain := IPTablesChain{
 			Name:         "PODNAT_PRE",
 			Table:        "nat",
 			ParentChain:  "PREROUTING",
@@ -114,7 +114,7 @@ func TestComputeRulePosition_3_Entries(t *testing.T) {
 		1:  1,
 		2:  2,
 	} {
-		chain := api.IpTablesChain{
+		chain := IPTablesChain{
 			Name:         "PODNAT_PRE",
 			Table:        "nat",
 			ParentChain:  "PREROUTING",
@@ -146,7 +146,7 @@ func TestComputeRulePosition_4_Entries(t *testing.T) {
 		1:  1,
 		2:  2,
 	} {
-		chain := api.IpTablesChain{
+		chain := IPTablesChain{
 			Name:         "PODNAT_PRE",
 			Table:        "nat",
 			ParentChain:  "PREROUTING",
