@@ -45,10 +45,10 @@ func (s *ConfigMapState) Put(data interface{}) error {
 	}
 
 	if _, err = s.Client.CoreV1().ConfigMaps(s.Namespace).Get(context.TODO(), s.Name, metav1.GetOptions{}); k8serr.IsNotFound(err) {
-		klog.Infof("creating configmap %s", s.Name)
+		klog.V(9).Infof("creating configmap %s", s.Name)
 		_, err = s.Client.CoreV1().ConfigMaps(s.Namespace).Create(context.TODO(), configMap, metav1.CreateOptions{})
 	} else {
-		klog.Infof("updating existing configmap %s", s.Name)
+		klog.V(9).Infof("updating existing configmap %s", s.Name)
 		_, err = s.Client.CoreV1().ConfigMaps(s.Namespace).Update(context.TODO(), configMap, metav1.UpdateOptions{})
 	}
 

@@ -107,7 +107,7 @@ func NewPodInformer(subscriber []string, events chan<- *api.PodInfo) *PodInforme
 			if slices.Contains(subscriber, "add") && filterForAnnotationAndPlacement("add", obj) {
 				pod := generatePodInfo("add", obj)
 				if pod != nil {
-					klog.Warningf("new pod added, matched filters: %s \n", pod.Name)
+					klog.V(9).Infof("new pod added, matched filters: %s \n", pod.Name)
 					events <- pod
 				}
 			}
@@ -116,7 +116,7 @@ func NewPodInformer(subscriber []string, events chan<- *api.PodInfo) *PodInforme
 			if slices.Contains(subscriber, "delete") && filterForAnnotationAndPlacement("delete", obj) {
 				pod := generatePodInfo("delete", obj)
 				if pod != nil {
-					klog.Warningf("pod deleted, matched filters: %s \n", pod.Name)
+					klog.V(9).Infof("pod deleted, matched filters: %s \n", pod.Name)
 					events <- pod
 				}
 			}
@@ -125,7 +125,7 @@ func NewPodInformer(subscriber []string, events chan<- *api.PodInfo) *PodInforme
 			if slices.Contains(subscriber, "update") && filterForAnnotationAndPlacement("update", newObj) {
 				pod := generatePodInfo("update", newObj)
 				if pod != nil {
-					klog.Warningf("pod updated, matched filters: %s \n", pod.Name)
+					klog.V(9).Infof("pod updated, matched filters: %s \n", pod.Name)
 					events <- pod
 				}
 			}
